@@ -1,0 +1,9 @@
+ollama
+chromadb
+sentence-transformers
+transformers
+torch
+pygame-ce
+requests
+beautifulsoup4
+Pillow

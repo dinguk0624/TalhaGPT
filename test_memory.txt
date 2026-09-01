@@ -1,0 +1,3 @@
+TalhaGPT'nin gizli test kodu: MAVİ-KARTAL-7429.
+
+Bu bilgi yalnızca RAG hafızasının test edilmesi amacıyla oluşturulmuştur.

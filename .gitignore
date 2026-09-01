@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables and secrets
+.env
+.env.*
+
+# TalhaGPT local data
+vector_db/
+data/notes.txt
+data/conversations/
+
+# Model and cache files
+.cache/
+models/
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Temporary generated files
+temp_screenshot.png
+temp_speech.mp3
+notlar.txtdata/conversation_memory.json
+data/conversation_memory.json
+notlar.txt
+notlar.txt
