@@ -1,5 +1,8 @@
 # modules/app_launcher.py
-import os
+import subprocess
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Sık kullanılan Windows uygulamaları ve sistem komutları
 APPS = {
@@ -39,8 +42,13 @@ def launch_app(user_input: str) -> str:
             return "[Uygulama Hatası]: Hangi uygulamanın açılacağı anlaşılamadı."
 
     try:
-        # Windows 'start' komutu ile uygulamayı arka planda başlat
-        os.system(f"start {target_app}")
+        # Subprocess kullanarak güvenli şekilde uygulamayı başlat
+        subprocess.Popen([target_app])
+        logger.info(f"Application launched: {app_label} ({target_app})")
         return f"[Sistem]: '{app_label.upper()}' uygulaması başarıyla başlatıldı."
+    except FileNotFoundError:
+        logger.error(f"Application not found: {target_app}")
+        return f"[Uygulama Hatası]: '{target_app}' uygulaması bulunamadı."
     except Exception as e:
+        logger.error(f"Failed to launch application {target_app}: {e}")
         return f"[Uygulama Hatası]: Uygulama başlatılamadı: {e}"
