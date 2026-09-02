@@ -1,24 +1,29 @@
 # config.py
 
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # ============================================================
 # MODEL CONFIGURATION
 # ============================================================
 
-MODEL_NAME = "qwen3:8b"
+MODEL_NAME = os.getenv("MODEL_NAME", "qwen3:8b")
 
-OLLAMA_HOST = "http://localhost:11434"
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 
 
 # ============================================================
 # VOICE CONFIGURATION
 # ============================================================
 
-TTS_LANGUAGE = "tr"
+TTS_LANGUAGE = os.getenv("TTS_LANGUAGE", "tr")
 
 # True  -> TalhaGPT reads responses aloud
 # False -> Terminal output only
-ENABLE_VOICE = False
+ENABLE_VOICE = os.getenv("ENABLE_VOICE", "False").lower() in ("true", "1", "yes")
 
 
 # ============================================================
