@@ -2,8 +2,11 @@
 # core/agent.py
 
 import json
+import logging
 
 import ollama
+
+logger = logging.getLogger(__name__)
 
 
 class Agent:
@@ -51,7 +54,8 @@ class Agent:
                 if isinstance(parsed, dict):
                     return parsed
 
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
+                logger.warning(f"Failed to parse JSON arguments: {e}")
                 pass
 
         return {}
@@ -83,8 +87,9 @@ class Agent:
 
         except Exception as e:
 
-            print(
-                f"[Memory Error] Failed to save message: {e}"
+            logger.error(
+                f"Failed to save message to memory: {e}",
+                exc_info=True
             )
 
     # ========================================================
@@ -108,8 +113,9 @@ class Agent:
 
         except Exception as e:
 
-            print(
-                f"[Memory Error] Failed to load messages: {e}"
+            logger.error(
+                f"Failed to load messages from memory: {e}",
+                exc_info=True
             )
 
         return []
@@ -281,6 +287,9 @@ class Agent:
             self.max_steps
         ):
 
+            logger.info(
+                f"Agent step {step + 1}/{self.max_steps}"
+            )
             print(
                 f"\n🧠 [Agent] Step "
                 f"{step + 1}/{self.max_steps}"
@@ -300,9 +309,9 @@ class Agent:
 
             except Exception as e:
 
-                return (
-                    f"Model execution error: {e}"
-                )
+                error_msg = f"Model execution error: {e}"
+                logger.error(error_msg, exc_info=True)
+                return error_msg
 
             response_message = response.message
 
@@ -332,6 +341,9 @@ class Agent:
 
                 if not content:
 
+                    logger.warning(
+                        "Model returned an empty response"
+                    )
                     print(
                         "[Agent] Model returned an empty "
                         "response."
@@ -371,6 +383,9 @@ class Agent:
                     content
                 )
 
+                logger.info(
+                    f"Agent completed with response"
+                )
                 return content
 
             # ------------------------------------------------
@@ -426,6 +441,9 @@ class Agent:
                     )
                 )
 
+                logger.info(
+                    f"Executing tool: {tool_name} with args: {arguments}"
+                )
                 print(
                     f"⚙️ [Tool] {tool_name}"
                 )
@@ -446,6 +464,7 @@ class Agent:
                         f"Error: Tool "
                         f"'{tool_name}' was not found."
                     )
+                    logger.error(f"Tool not found: {tool_name}")
 
                 else:
 
@@ -457,12 +476,19 @@ class Agent:
                                 arguments
                             )
                         )
+                        logger.info(
+                            f"Tool {tool_name} executed successfully"
+                        )
 
                     except Exception as e:
 
                         tool_result = (
                             "Tool execution error: "
                             f"{e}"
+                        )
+                        logger.error(
+                            f"Tool {tool_name} failed: {e}",
+                            exc_info=True
                         )
 
                 # --------------------------------------------
@@ -498,8 +524,10 @@ class Agent:
         # MAXIMUM STEPS
         # ----------------------------------------------------
 
-        return (
+        max_steps_msg = (
             "The agent reached its maximum "
             f"limit of {self.max_steps} steps. "
             "The operation was stopped."
         )
+        logger.warning(max_steps_msg)
+        return max_steps_msg
