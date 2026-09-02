@@ -1,5 +1,6 @@
 # modules/voice.py
 import os
+import tempfile
 from gtts import gTTS
 import pygame
 from config import TTS_LANGUAGE, ENABLE_VOICE
@@ -10,8 +11,11 @@ def speak(text: str):
     if not ENABLE_VOICE or not text.strip():
         return
     
-    filename = "temp_speech.mp3"
     try:
+        # Use tempfile module for secure temp file handling
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
+            filename = tmp.name
+        
         tts = gTTS(text=text, lang=TTS_LANGUAGE, slow=False)
         tts.save(filename)
 
