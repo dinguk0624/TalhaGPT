@@ -1,132 +1,101 @@
 # TalhaGPT 🤖
 
-> **Tired of using Qwen3:8B by itself?**
->
-> **Meet TalhaGPT — a more capable AI assistant built on top of Qwen3:8B.**
->
-> TalhaGPT combines Qwen3:8B with persistent memory, Retrieval-Augmented Generation (RAG), tool calling, web access, system monitoring, application control, image generation, screen capture, and optional voice output.
->
-> **Qwen3:8B is the model. TalhaGPT is the complete AI assistant.**
+> **A local AI assistant built on top of Qwen3:8B.**
 
-TalhaGPT is a local AI assistant built with Python and powered by the Qwen3:8B model through Ollama.
+TalhaGPT combines a local LLM with an agent loop, tool calling, persistent memory, RAG, web access, system tools, vision, image generation, and optional voice output.
 
-## ✨ Features
+**Qwen3:8B is the model. TalhaGPT is the assistant layer around it.**
 
-* 🤖 Local AI powered by Qwen3:8B
-* 🧠 Persistent conversation memory
-* 🔎 Retrieval-Augmented Generation (RAG)
-* 🛠️ Function and tool calling
-* 🌐 Web search
-* 📄 Web page retrieval
-* 🌤️ Weather information
-* 🖥️ System resource monitoring
-* 🚀 Application launcher
-* 📝 Persistent notes
-* 📚 Document indexing into RAG memory
-* 🖼️ AI image generation
-* 📸 Screen capture
-* 🔊 Optional text-to-speech
-* 💾 Local vector database with ChromaDB
+## ✨ Highlights
+
+- 🤖 Local AI through Ollama + Qwen3:8B
+- 🧠 Persistent conversation memory
+- 🔎 ChromaDB + Sentence Transformers RAG
+- 🛠️ Agent-based tool calling
+- 🌐 Web search and page retrieval
+- 🌤️ Weather and system monitoring
+- 🚀 Application launching
+- 📚 Document-to-RAG indexing
+- 🖼️ Image generation
+- 📸 Screen capture and vision support
+- 🔊 Optional text-to-speech
+- 🧪 Automated tests and GitHub Actions
 
 ## 🏗️ Architecture
 
 ```text
-TalhaGPT
-│
-├── main.py
-├── config.py
-│
-├── core/
-│   ├── agent.py
-│   ├── tools.py
-│   └── tool_registry.py
-│
-├── modules/
-│   ├── api_tools.py
-│   ├── app_launcher.py
-│   ├── image_gen.py
-│   ├── journal.py
-│   ├── memory.py
-│   ├── rag.py
-│   ├── system.py
-│   ├── vision.py
-│   ├── voice.py
-│   └── web.py
-│
-├── data/
-│   └── conversations/
-│
-├── vector_db/
-│
-├── requirements.txt
-└── README.md
+                         ┌──────────────────┐
+                         │       User       │
+                         └────────┬─────────┘
+                                  │
+                                  ▼
+                         ┌──────────────────┐
+                         │  TalhaGPT Agent  │
+                         └────────┬─────────┘
+                                  │
+                    ┌─────────────┴─────────────┐
+                    │                           │
+                    ▼                           ▼
+             Direct Response              Tool Selection
+                                                │
+                ┌───────────────┬──────────────┼───────────────┐
+                ▼               ▼              ▼               ▼
+              Web             RAG           System           Vision
+                │               │              │               │
+                └───────────────┴──────────────┴───────────────┘
+                                                │
+                                                ▼
+                                      ┌──────────────────┐
+                                      │   Tool Result    │
+                                      └────────┬─────────┘
+                                               │
+                                               ▼
+                                      ┌──────────────────┐
+                                      │  Agent evaluates │
+                                      └────────┬─────────┘
+                                               │
+                                               ▼
+                                         Final answer
 ```
 
 ## 🧠 How It Works
 
-TalhaGPT uses an agent-based architecture.
+TalhaGPT uses an agent loop rather than simply forwarding every prompt to the model. The model can decide when a registered tool is useful, receive the result, and continue reasoning toward a final response.
 
-```text
-User
- │
- ▼
-TalhaGPT Agent
- │
- ├── Direct Answer
- │
- └── Tool Selection
-       │
-       ├── Weather
-       ├── Web Search
-       ├── System Status
-       ├── App Launcher
-       ├── RAG Memory
-       ├── Image Generation
-       └── Screen Capture
-              │
-              ▼
-         Tool Result
-              │
-              ▼
-       Agent Evaluation
-              │
-              ▼
-        Final Response
-```
+Long-term information can be stored in local RAG memory and retrieved through semantic similarity instead of relying only on the active conversation context.
 
-When long-term information is needed, TalhaGPT can store information in its local RAG memory and retrieve it later using semantic similarity search.
+## 🛠️ Tools
 
-## 🧰 Technologies
+| Tool | Purpose |
+|---|---|
+| `get_weather` | Weather information |
+| `get_system_status` | CPU, RAM and system resources |
+| `save_note` | Persistent notes |
+| `launch_app` | Launch allowed applications |
+| `add_document_to_memory` | Index documents into RAG |
+| `search_memory` | Semantic memory search |
+| `generate_image` | Image generation |
+| `web_search` | Internet search |
+| `fetch_web_page` | Retrieve web page contents |
+| `capture_screen` | Screen capture |
 
-* Python
-* Ollama
-* Qwen3:8B
-* ChromaDB
-* Sentence Transformers
-* Transformers
-* PyTorch
-* Requests
-* BeautifulSoup
-* Pygame
-* Pillow
+## 🧰 Stack
 
-## 💻 Requirements
-
-Recommended:
-
-* Python 3.12+
-* Ollama
-* NVIDIA GPU with sufficient VRAM
-* At least 16 GB of system RAM
-
-TalhaGPT can also run without a GPU, although model performance may be significantly slower.
+- Python 3.12+
+- Ollama
+- Qwen3:8B
+- ChromaDB
+- Sentence Transformers
+- Transformers / PyTorch
+- Requests / BeautifulSoup
+- Pillow / Pygame
 
 ## 🚀 Installation
 
-### 1. Clone the repository
+### 1. Clone
 
 ```bash
-git clone <YOUR_REPOSITORY_URL>
+git clone https://github.com/dinguk0624/TalhaGPT.git
 cd TalhaGPT
 ```
 
@@ -136,103 +105,74 @@ cd TalhaGPT
 pip install -r requirements.txt
 ```
 
-### 3. Install Qwen3:8B
+### 3. Install the model
 
-Make sure Ollama is installed, then run:
+Install Ollama, then:
 
 ```bash
 ollama pull qwen3:8b
 ```
 
-### 4. Start TalhaGPT
+### 4. Run
 
 ```bash
 python main.py
 ```
 
+### 5. Run tests
+
+```bash
+pytest -q
+```
+
 ## ⚙️ Configuration
 
-The main configuration is located in:
+Configuration lives in `config.py` and environment variables can be used for deployment-specific settings.
 
-```text
-config.py
-```
+Important settings include:
 
-You can configure:
+- `MODEL_NAME`
+- `OLLAMA_HOST`
+- `ENABLE_VOICE`
+- `TTS_LANGUAGE`
 
-* AI model
-* Ollama host
-* Voice language
-* Voice output
-* System prompt
+Do not commit API keys, tokens, passwords, or private data.
 
-## 🔊 Voice Output
+## 🔊 Voice
 
-Voice output is disabled by default.
+Voice output is optional and disabled by default. Set `ENABLE_VOICE=True` when the required dependencies are installed.
 
-In `config.py`:
+## 🔒 Privacy & Security
 
-```python
-ENABLE_VOICE = False
-```
+TalhaGPT is designed for local AI execution. The model, conversation memory, and vector database can run on the user's computer. Individual tools may still access external services or the local system, so review their behavior before using TalhaGPT with sensitive data.
 
-Set it to:
+## 🧪 Development
 
-```python
-ENABLE_VOICE = True
-```
+The repository includes automated tests for core agent and tool-registry behavior. GitHub Actions runs the test suite on pushes and pull requests.
 
-to enable voice output if the required dependencies are available.
+See `CONTRIBUTING.md` for development guidelines and `CHANGELOG.md` for project history.
 
-## 🧠 RAG Memory
+## 🗺️ Roadmap
 
-TalhaGPT uses ChromaDB and Sentence Transformers for semantic memory.
-
-Information can be:
-
-* Saved as persistent notes
-* Added from documents
-* Retrieved using semantic similarity search
-
-This allows TalhaGPT to retrieve relevant information without relying only on the current conversation context.
-
-## 🛠️ Available Tools
-
-| Tool                     | Purpose                               |
-| ------------------------ | ------------------------------------- |
-| `get_weather`            | Retrieves weather information         |
-| `get_system_status`      | Checks computer resources             |
-| `save_note`              | Saves information to long-term memory |
-| `launch_app`             | Launches an allowed application       |
-| `add_document_to_memory` | Adds a document to RAG memory         |
-| `search_memory`          | Searches long-term memory             |
-| `generate_image`         | Generates an image                    |
-| `web_search`             | Searches the internet                 |
-| `fetch_web_page`         | Reads a web page                      |
-| `capture_screen`         | Captures the screen                   |
-
-## 🔒 Privacy
-
-TalhaGPT is designed around local AI execution.
-
-The language model runs through Ollama on the user's computer.
-
-Local memory and the ChromaDB vector database are stored locally.
-
-Users should review individual tools and dependencies before deploying the project in environments where sensitive information may be present.
-
-## ⚠️ Project Status
-
-TalhaGPT is an actively developed personal AI assistant project.
-
-Features and architecture may change as development continues.
+- [x] Local Qwen3:8B integration
+- [x] Agent loop
+- [x] Tool calling
+- [x] Conversation memory
+- [x] RAG
+- [x] Web tools
+- [x] System tools
+- [x] Vision / image capabilities
+- [x] Automated tests
+- [ ] Streaming responses
+- [ ] Tool permission system
+- [ ] Multi-session conversations
+- [ ] More comprehensive integration tests
+- [ ] Public demo
 
 ## 📜 License
 
-License information will be added before the first public release.
+This project is released under the license included in `LICENSE`.
 
-## ⭐ Contributing
+## ⭐ Support
 
-Contributions, ideas, bug reports, and improvements are welcome.
-
-If you find the project interesting, consider giving it a ⭐ on GitHub.
+If TalhaGPT is useful or interesting, consider starring the repository. Ideas, issues, and contributions are welcome.
