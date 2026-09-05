@@ -1,10 +1,10 @@
 # modules/app_launcher.py
-import subprocess
 import logging
+import subprocess
 
 logger = logging.getLogger(__name__)
 
-# Sık kullanılan Windows uygulamaları ve sistem komutları
+# Only explicitly allowlisted Windows applications may be launched.
 APPS = {
     "hesap makinesi": "calc.exe",
     "not defteri": "notepad.exe",
@@ -15,40 +15,36 @@ APPS = {
     "chrome": "chrome.exe",
     "discord": "discord.exe",
     "steam": "steam.exe",
-    "spotify": "spotify.exe"
+    "spotify": "spotify.exe",
 }
 
+
 def launch_app(user_input: str) -> str:
-    """Kullanıcının isteğine göre Windows uygulamasını başlatır."""
-    text = user_input.lower()
-    
-    # Tanımlı uygulamalarda arama yap
+    """Launch an explicitly allowlisted Windows application."""
+    if not isinstance(user_input, str) or not user_input.strip():
+        return "[Uygulama Hatası]: Hangi uygulamanın açılacağı belirtilmedi."
+
+    text = user_input.casefold()
     target_app = None
-    app_label = ""
-    
+    app_label = None
+
     for name, exe in APPS.items():
         if name in text:
             target_app = exe
             app_label = name
             break
-            
-    if not target_app:
-        # Eğer listede yoksa, "aç" kelimesinden önceki veya sonraki kelimeyi çalıştırmayı dene
-        words = text.replace("aç", "").replace("başlat", "").replace("çalıştır", "").strip().split()
-        if words:
-            target_app = words[0] + ".exe"
-            app_label = words[0]
-        else:
-            return "[Uygulama Hatası]: Hangi uygulamanın açılacağı anlaşılamadı."
+
+    # Never construct an executable name from arbitrary user/model input.
+    if target_app is None:
+        return "[Uygulama Hatası]: Bu uygulama güvenlik nedeniyle izin verilen listede değil."
 
     try:
-        # Subprocess kullanarak güvenli şekilde uygulamayı başlat
-        subprocess.Popen([target_app])
-        logger.info(f"Application launched: {app_label} ({target_app})")
+        subprocess.Popen([target_app], shell=False)
+        logger.info("Application launched: %s (%s)", app_label, target_app)
         return f"[Sistem]: '{app_label.upper()}' uygulaması başarıyla başlatıldı."
     except FileNotFoundError:
-        logger.error(f"Application not found: {target_app}")
+        logger.error("Application not found: %s", target_app)
         return f"[Uygulama Hatası]: '{target_app}' uygulaması bulunamadı."
-    except Exception as e:
-        logger.error(f"Failed to launch application {target_app}: {e}")
-        return f"[Uygulama Hatası]: Uygulama başlatılamadı: {e}"
+    except OSError:
+        logger.exception("Failed to launch application: %s", target_app)
+        return "[Uygulama Hatası]: Uygulama başlatılamadı."
