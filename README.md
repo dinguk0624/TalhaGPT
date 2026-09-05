@@ -6,6 +6,13 @@ TalhaGPT combines a local LLM with an agent loop, tool calling, persistent memor
 
 **Qwen3:8B is the model. TalhaGPT is the assistant layer around it.**
 
+## 🌐 Website
+
+### [🚀 Try TalhaGPT Web Buddy](https://talha-gpt-web-buddy.lovable.app)
+*Built with Loveable - Web UI for TalhaGPT*
+
+---
+
 ## ✨ Highlights
 
 - 🤖 Local AI through Ollama + Qwen3:8B
@@ -60,7 +67,7 @@ TalhaGPT combines a local LLM with an agent loop, tool calling, persistent memor
 
 ## 🧠 How It Works
 
-TalhaGPT uses an agent loop rather than simply forwarding every prompt to the model. The model can decide when a registered tool is useful, receive the result, and continue reasoning toward a final response.
+TalhaGPT uses an agent loop rather than simply forwarding every prompt to the model. The model can decide when a registered tool is useful, receive the result, and continue reasoning toward a final answer.
 
 Long-term information can be stored in local RAG memory and retrieved through semantic similarity instead of relying only on the active conversation context.
 
@@ -219,7 +226,7 @@ python3 main.py
 python -m pytest -q
 ```
 
-> **Note:** Some system-level tools may behave differently across operating systems. In particular, application launching, screen capture, and other OS-specific functionality may require platform-specific support or configuration.
+> **Note:** Some system-level tools may behave differently across operating systems. In particular, application launching, screen capture, and other OS-specific functionality may require platform-specific setup.
 
 ## ⚙️ Configuration
 
@@ -240,7 +247,7 @@ Voice output is optional and disabled by default. Set `ENABLE_VOICE=True` when t
 
 ## 🔒 Privacy & Security
 
-TalhaGPT is designed for local AI execution. The model, conversation memory, and vector database can run on the user's computer. Individual tools may still access external services or the local system, so review their behavior before using TalhaGPT with sensitive data.
+TalhaGPT is designed for local AI execution. The model, conversation memory, and vector database can run on the user's computer. Individual tools may still access external services or the local system depending on configuration.
 
 ## 🧪 Development
 
