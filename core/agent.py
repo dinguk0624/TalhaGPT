@@ -3,7 +3,7 @@ import logging
 
 import ollama
 
-from config import MAX_AGENT_STEPS, OLLAMA_HOST, SYSTEM_PROMPT, TOOL_OUTPUT_MAX_CHARS
+from config import OLLAMA_HOST, SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -11,12 +11,13 @@ logger = logging.getLogger(__name__)
 class Agent:
     """Main TalhaGPT model/tool execution loop."""
 
-    def __init__(self, model_name: str, tool_registry, max_steps: int | None = None, memory=None):
+    def __init__(self, model_name: str, tool_registry, max_steps: int = 6, memory=None):
         self.model_name = model_name
         self.tool_registry = tool_registry
-        self.max_steps = max_steps if max_steps is not None else MAX_AGENT_STEPS
+        self.max_steps = max_steps
         self.memory = memory
         self.client = ollama.Client(host=OLLAMA_HOST)
+        self.tool_output_max_chars = 12000
 
     @staticmethod
     def _parse_arguments(arguments) -> dict:
@@ -33,12 +34,11 @@ class Agent:
                 logger.warning("Invalid tool arguments: %s", exc)
         return {}
 
-    @staticmethod
-    def _limit_tool_output(value) -> str:
+    def _limit_tool_output(self, value) -> str:
         text = str(value)
-        if len(text) <= TOOL_OUTPUT_MAX_CHARS:
+        if len(text) <= self.tool_output_max_chars:
             return text
-        return text[:TOOL_OUTPUT_MAX_CHARS] + "\n[Tool output truncated.]"
+        return text[:self.tool_output_max_chars] + "\n[Tool output truncated.]"
 
     def _save_message(self, role: str, content: str = "", **kwargs) -> None:
         if self.memory is None:
@@ -61,8 +61,7 @@ class Agent:
     def _prepare_messages(self, messages: list[dict]) -> list[dict]:
         stored = [m for m in self._load_memory_messages() if isinstance(m, dict) and m.get("role") != "tool"]
         current = [dict(m) for m in messages if isinstance(m, dict)]
-        combined = stored + [m for m in current if m not in stored]
-        return combined
+        return stored + [m for m in current if m not in stored]
 
     def _ensure_system_prompt(self, messages: list[dict]) -> list[dict]:
         result = [dict(m) for m in messages if isinstance(m, dict)]
@@ -126,7 +125,6 @@ class Agent:
                         logger.exception("Tool execution failed: %s", tool_name)
                         result = f"Error executing tool '{tool_name}': {exc}"
 
-                result = self._limit_tool_output(result)
-                messages.append({"role": "tool", "content": result})
+                messages.append({"role": "tool", "content": self._limit_tool_output(result)})
 
         return f"The agent reached its maximum limit of {self.max_steps} steps."
