@@ -1,533 +1,147 @@
-
-# core/agent.py
-
 import json
 import logging
+import os
 
 import ollama
+
+from config import SYSTEM_PROMPT, OLLAMA_HOST
 
 logger = logging.getLogger(__name__)
 
 
 class Agent:
-    """
-    Main agent loop for TalhaGPT.
+    """Main TalhaGPT model/tool execution loop."""
 
-    Model -> Tool -> Model -> Tool -> Final answer
-
-    ConversationMemory can be connected to preserve
-    conversation history between sessions.
-    """
-
-    def __init__(
-        self,
-        model_name: str,
-        tool_registry,
-        max_steps: int = 6,
-        memory=None,
-    ):
+    def __init__(self, model_name: str, tool_registry, max_steps: int = 6, memory=None):
         self.model_name = model_name
         self.tool_registry = tool_registry
         self.max_steps = max_steps
         self.memory = memory
+        self.client = ollama.Client(host=OLLAMA_HOST)
 
-    # ========================================================
-    # ARGUMENT PARSING
-    # ========================================================
-
-    def _parse_arguments(self, arguments):
-        """
-        Safely convert tool arguments into a dictionary.
-        """
-
+    def _parse_arguments(self, arguments) -> dict:
         if arguments is None:
             return {}
-
         if isinstance(arguments, dict):
             return arguments
-
         if isinstance(arguments, str):
-
             try:
                 parsed = json.loads(arguments)
-
-                if isinstance(parsed, dict):
-                    return parsed
-
+                return parsed if isinstance(parsed, dict) else {}
             except json.JSONDecodeError as e:
-                logger.warning(f"Failed to parse JSON arguments: {e}")
-                pass
-
+                logger.warning("Failed to parse tool arguments: %s", e)
         return {}
 
-    # ========================================================
-    # MEMORY SAVE
-    # ========================================================
-
-    def _save_message(
-        self,
-        role: str,
-        content: str = "",
-        **kwargs
-    ):
-        """
-        Save a message to ConversationMemory if enabled.
-        """
-
+    def _save_message(self, role: str, content: str = "", **kwargs) -> None:
         if self.memory is None:
             return
-
         try:
+            self.memory.add_message(role, content, **kwargs)
+        except Exception:
+            logger.exception("Failed to save message to memory")
 
-            self.memory.add_message(
-                role,
-                content,
-                **kwargs
-            )
-
-        except Exception as e:
-
-            logger.error(
-                f"Failed to save message to memory: {e}",
-                exc_info=True
-            )
-
-    # ========================================================
-    # MEMORY LOAD
-    # ========================================================
-
-    def _load_memory_messages(self):
-        """
-        Load conversation history from ConversationMemory.
-        """
-
+    def _load_memory_messages(self) -> list[dict]:
         if self.memory is None:
             return []
-
         try:
-
             messages = self.memory.get_messages()
+            return messages if isinstance(messages, list) else []
+        except Exception:
+            logger.exception("Failed to load messages from memory")
+            return []
 
-            if isinstance(messages, list):
-                return messages
+    def _prepare_messages(self, messages: list[dict]) -> list[dict]:
+        stored = self._load_memory_messages()
+        current = [dict(m) for m in messages if isinstance(m, dict)]
 
-        except Exception as e:
-
-            logger.error(
-                f"Failed to load messages from memory: {e}",
-                exc_info=True
-            )
-
-        return []
-
-    # ========================================================
-    # PREPARE MESSAGES
-    # ========================================================
-
-    def _prepare_messages(
-        self,
-        messages: list[dict]
-    ) -> list[dict]:
-        """
-        Combine persistent memory with current messages.
-        """
-
-        stored_messages = self._load_memory_messages()
-
-        if not stored_messages:
-            return [
-                dict(message)
-                for message in messages
-                if isinstance(message, dict)
-            ]
-
-        combined = []
-
-        for message in stored_messages:
-
-            if isinstance(message, dict):
-
-                combined.append(
-                    dict(message)
-                )
-
-        for message in messages:
-
-            if not isinstance(message, dict):
-                continue
-
+        # Do not replay old tool messages indefinitely. They are execution context,
+        # not durable conversation state.
+        stored = [m for m in stored if m.get("role") != "tool"]
+        combined = [dict(m) for m in stored if isinstance(m, dict)]
+        for message in current:
             if message not in combined:
-
-                combined.append(
-                    dict(message)
-                )
-
+                combined.append(message)
         return combined
 
-    # ========================================================
-    # ENSURE SYSTEM PROMPT
-    # ========================================================
+    def _ensure_system_prompt(self, messages: list[dict]) -> list[dict]:
+        result = [dict(m) for m in messages if isinstance(m, dict)]
+        system_index = next((i for i, m in enumerate(result) if m.get("role") == "system"), None)
 
-    def _ensure_system_prompt(
-        self,
-        messages: list[dict]
-    ) -> list[dict]:
-        """
-        Make sure the model receives clear instructions
-        about memory and available tools.
-        """
+        if system_index is None:
+            result.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
+        else:
+            # Keep the user-supplied system message, but ensure the configured
+            # TalhaGPT rules are present when the caller supplied an empty one.
+            if not result[system_index].get("content"):
+                result[system_index]["content"] = SYSTEM_PROMPT
+        return result
 
-        system_instruction = (
-            "You are TalhaGPT, a helpful AI assistant. "
+    def run(self, messages: list[dict]) -> str:
+        messages = self._ensure_system_prompt(self._prepare_messages(messages))
 
-            "You have access to tools. "
-
-            "When the user explicitly asks you to remember, "
-            "save, store, or note information, use the "
-            "save_note tool. "
-
-            "When the user asks about information that may "
-            "already exist in RAG memory, use the "
-            "search_memory tool before answering. "
-
-            "Do not claim that you saved something unless "
-            "the save_note tool actually succeeded. "
-
-            "After a successful tool call, give the user "
-            "a clear final response."
-        )
-
-        has_system = False
-
-        for message in messages:
-
-            if (
-                isinstance(message, dict)
-                and message.get("role") == "system"
-            ):
-
-                has_system = True
-                break
-
-        if not has_system:
-
-            messages.insert(
-                0,
-                {
-                    "role": "system",
-                    "content": system_instruction,
-                }
-            )
-
-        return messages
-
-    # ========================================================
-    # RUN AGENT
-    # ========================================================
-
-    def run(
-        self,
-        messages: list[dict]
-    ) -> str:
-        """
-        Run the TalhaGPT agent loop.
-        """
-
-        # ----------------------------------------------------
-        # PREPARE CONVERSATION
-        # ----------------------------------------------------
-
-        messages = self._prepare_messages(
-            messages
-        )
-
-        messages = self._ensure_system_prompt(
-            messages
-        )
-
-        # ----------------------------------------------------
-        # SAVE NEW MESSAGES
-        # ----------------------------------------------------
-
+        # Save only the actual conversation messages, not the generated system prompt.
         if self.memory is not None:
-
-            existing_messages = (
-                self._load_memory_messages()
-            )
-
+            existing = self._load_memory_messages()
             for message in messages:
-
-                if message not in existing_messages:
-
+                if message.get("role") == "system":
+                    continue
+                if message not in existing:
                     self._save_message(
-                        message.get(
-                            "role",
-                            "user"
-                        ),
-                        message.get(
-                            "content",
-                            ""
-                        ),
-                        **{
-                            key: value
-                            for key, value
-                            in message.items()
-                            if key not in (
-                                "role",
-                                "content"
-                            )
-                        }
+                        message.get("role", "user"),
+                        message.get("content", ""),
+                        **{k: v for k, v in message.items() if k not in {"role", "content"}},
                     )
 
-        # ----------------------------------------------------
-        # AGENT LOOP
-        # ----------------------------------------------------
-
-        for step in range(
-            self.max_steps
-        ):
-
-            logger.info(
-                f"Agent step {step + 1}/{self.max_steps}"
-            )
-            print(
-                f"\n🧠 [Agent] Step "
-                f"{step + 1}/{self.max_steps}"
-            )
-
-            # ------------------------------------------------
-            # CALL MODEL
-            # ------------------------------------------------
+        for step in range(self.max_steps):
+            logger.info("Agent step %s/%s", step + 1, self.max_steps)
 
             try:
-
-                response = ollama.chat(
+                response = self.client.chat(
                     model=self.model_name,
                     messages=messages,
                     tools=self.tool_registry.get_schemas(),
                 )
-
             except Exception as e:
-
-                error_msg = f"Model execution error: {e}"
-                logger.error(error_msg, exc_info=True)
-                return error_msg
+                logger.exception("Model execution failed")
+                return f"Model execution error: {e}"
 
             response_message = response.message
-
-            # ------------------------------------------------
-            # TOOL CALLS
-            # ------------------------------------------------
-
-            tool_calls = (
-                response_message.tool_calls
-                or []
-            )
-
-            # ------------------------------------------------
-            # NORMAL RESPONSE
-            # ------------------------------------------------
+            tool_calls = response_message.tool_calls or []
+            content = (response_message.content or "").strip()
 
             if not tool_calls:
-
-                content = (
-                    response_message.content
-                    or ""
-                ).strip()
-
-                # --------------------------------------------
-                # EMPTY RESPONSE
-                # --------------------------------------------
-
                 if not content:
-
-                    logger.warning(
-                        "Model returned an empty response"
-                    )
-                    print(
-                        "[Agent] Model returned an empty "
-                        "response."
-                    )
-
-                    # Try one more model request with an
-                    # explicit instruction.
-                    messages.append(
-                        {
+                    logger.warning("Model returned an empty response")
+                    if step + 1 < self.max_steps:
+                        messages.append({
                             "role": "user",
-                            "content": (
-                                "Please continue and provide "
-                                "a clear response. If a tool "
-                                "is required, use the "
-                                "appropriate tool."
-                            ),
-                        }
-                    )
+                            "content": "Provide a clear final answer to the user's request.",
+                        })
+                        continue
+                    return "Model returned an empty response."
 
-                    continue
-
-                # --------------------------------------------
-                # SAVE ASSISTANT RESPONSE
-                # --------------------------------------------
-
-                assistant_message = {
-                    "role": "assistant",
-                    "content": content,
-                }
-
-                messages.append(
-                    assistant_message
-                )
-
-                self._save_message(
-                    "assistant",
-                    content
-                )
-
-                logger.info(
-                    f"Agent completed with response"
-                )
+                messages.append({"role": "assistant", "content": content})
+                self._save_message("assistant", content)
                 return content
 
-            # ------------------------------------------------
-            # SAVE ASSISTANT TOOL CALL
-            # ------------------------------------------------
-
-            assistant_message = {
-                "role": "assistant",
-                "content": (
-                    response_message.content
-                    or ""
-                ),
-                "tool_calls": [
-                    {
-                        "function": {
-                            "name": (
-                                tool_call.function.name
-                            ),
-                            "arguments": (
-                                tool_call.function.arguments
-                            ),
-                        }
-                    }
-                    for tool_call in tool_calls
-                ],
-            }
-
-            messages.append(
-                assistant_message
-            )
-
-            self._save_message(
-                "assistant",
-                response_message.content or "",
-                tool_calls=assistant_message[
-                    "tool_calls"
-                ]
-            )
-
-            # ------------------------------------------------
-            # EXECUTE TOOLS
-            # ------------------------------------------------
+            # Preserve the model's complete tool-call message in the context.
+            messages.append(response_message)
 
             for tool_call in tool_calls:
+                tool_name = tool_call.function.name
+                arguments = self._parse_arguments(tool_call.function.arguments)
 
-                tool_name = (
-                    tool_call.function.name
-                )
-
-                arguments = (
-                    self._parse_arguments(
-                        tool_call.function.arguments
-                    )
-                )
-
-                logger.info(
-                    f"Executing tool: {tool_name} with args: {arguments}"
-                )
-                print(
-                    f"⚙️ [Tool] {tool_name}"
-                )
-
-                print(
-                    f"   Arguments: {arguments}"
-                )
-
-                # --------------------------------------------
-                # CHECK TOOL
-                # --------------------------------------------
-
-                if not self.tool_registry.has(
-                    tool_name
-                ):
-
-                    tool_result = (
-                        f"Error: Tool "
-                        f"'{tool_name}' was not found."
-                    )
-                    logger.error(f"Tool not found: {tool_name}")
-
+                if not self.tool_registry.has(tool_name):
+                    tool_result = f"Error: Tool '{tool_name}' was not found."
                 else:
+                    tool_result = self.tool_registry.execute(tool_name, arguments)
 
-                    try:
+                logger.info("Tool %s result: %s", tool_name, tool_result)
 
-                        tool_result = (
-                            self.tool_registry.execute(
-                                tool_name,
-                                arguments
-                            )
-                        )
-                        logger.info(
-                            f"Tool {tool_name} executed successfully"
-                        )
-
-                    except Exception as e:
-
-                        tool_result = (
-                            "Tool execution error: "
-                            f"{e}"
-                        )
-                        logger.error(
-                            f"Tool {tool_name} failed: {e}",
-                            exc_info=True
-                        )
-
-                # --------------------------------------------
-                # PRINT RESULT
-                # --------------------------------------------
-
-                print(
-                    f"📦 [Tool Result]: "
-                    f"{tool_result}"
-                )
-
-                # --------------------------------------------
-                # SEND TOOL RESULT TO MODEL
-                # --------------------------------------------
-
-                tool_message = {
+                # Ollama accepts tool-role messages after the assistant tool-call message.
+                messages.append({
                     "role": "tool",
-                    "content": str(
-                        tool_result
-                    ),
-                }
+                    "content": str(tool_result),
+                })
 
-                messages.append(
-                    tool_message
-                )
-
-                self._save_message(
-                    "tool",
-                    str(tool_result)
-                )
-
-        # ----------------------------------------------------
-        # MAXIMUM STEPS
-        # ----------------------------------------------------
-
-        max_steps_msg = (
-            "The agent reached its maximum "
-            f"limit of {self.max_steps} steps. "
-            "The operation was stopped."
-        )
-        logger.warning(max_steps_msg)
-        return max_steps_msg
+        return f"The agent reached its maximum limit of {self.max_steps} steps."
