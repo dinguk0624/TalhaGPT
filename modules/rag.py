@@ -1,395 +1,125 @@
-# modules/rag.py
-
+import hashlib
 import os
-import uuid
 
 import chromadb
 from sentence_transformers import SentenceTransformer
 
 
-print("[RAG] Loading embedding model...")
+_embedder = None
 
 
-# ============================================================
-# EMBEDDING MODEL
-# ============================================================
-
-embedder = SentenceTransformer(
-    "all-MiniLM-L6-v2"
-)
-
-
-# ============================================================
-# VECTOR DATABASE
-# ============================================================
-
-db_client = chromadb.PersistentClient(
-    path="./vector_db"
-)
-
-collection = db_client.get_or_create_collection(
-    name="talha_knowledge"
-)
+def _get_embedder() -> SentenceTransformer:
+    """Load the embedding model only when RAG functionality is first used."""
+    global _embedder
+    if _embedder is None:
+        print("[RAG] Loading embedding model...")
+        _embedder = SentenceTransformer("all-MiniLM-L6-v2")
+    return _embedder
 
 
-# ============================================================
-# TEXT CHUNKING
-# ============================================================
+db_client = chromadb.PersistentClient(path="./vector_db")
+collection = db_client.get_or_create_collection(name="talha_knowledge")
 
-def _split_text(
-    text: str,
-    chunk_size: int = 500
-) -> list[str]:
-    """
-    Split text into manageable chunks.
-    """
 
+def _split_text(text: str, chunk_size: int = 500) -> list[str]:
     if not text or not text.strip():
         return []
-
     if chunk_size <= 0:
         chunk_size = 500
-
-    raw_chunks = [
-        paragraph.strip()
-        for paragraph in text.split("\n\n")
-        if paragraph.strip()
-    ]
-
+    raw_chunks = [p.strip() for p in text.split("\n\n") if p.strip()]
     chunks = []
-
     for paragraph in raw_chunks:
-
         if len(paragraph) <= chunk_size:
-
-            chunks.append(
-                paragraph
-            )
-
+            chunks.append(paragraph)
         else:
-
-            for i in range(
-                0,
-                len(paragraph),
-                chunk_size
-            ):
-
-                chunk = paragraph[
-                    i:i + chunk_size
-                ].strip()
-
-                if chunk:
-                    chunks.append(
-                        chunk
-                    )
-
+            chunks.extend(
+                paragraph[i:i + chunk_size].strip()
+                for i in range(0, len(paragraph), chunk_size)
+                if paragraph[i:i + chunk_size].strip()
+            )
     return chunks
 
 
-# ============================================================
-# ADD TEXT TO MEMORY
-# ============================================================
+def _content_id(prefix: str, content: str) -> str:
+    digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    return f"{prefix}_{digest}"
 
-def add_text_to_memory(
-    text: str,
-    source: str = "user_note"
+
+def _store_chunks(
+    chunks: list[str],
+    source: str,
+    memory_type: str,
+    prefix: str,
+    file_name: str | None = None,
 ) -> str:
-    """
-    Add plain text to TalhaGPT's long-term RAG memory.
-    """
+    if not chunks:
+        return "[RAG]: No valid text chunks were created."
+    ids = [_content_id(prefix, chunk) for chunk in chunks]
+    try:
+        embeddings = _get_embedder().encode(chunks).tolist()
+        metadatas = [
+            {"source": source, "type": memory_type, **({"file_name": file_name} if file_name else {})}
+            for _ in chunks
+        ]
+        collection.upsert(documents=chunks, embeddings=embeddings, ids=ids, metadatas=metadatas)
+    except Exception as exc:
+        return f"[RAG Error]: Failed to store memory: {type(exc).__name__}"
+    return f"[RAG]: Text successfully added to long-term memory. ({len(chunks)} chunks)"
 
+
+def add_text_to_memory(text: str, source: str = "user_note") -> str:
     if not text or not text.strip():
-
-        return (
-            "[RAG Error]: "
-            "Cannot add empty text to memory."
-        )
-
-    text = text.strip()
-
-    chunks = _split_text(
-        text
-    )
-
-    if not chunks:
-
-        return (
-            "[RAG Error]: "
-            "No valid text chunks were created."
-        )
-
-    ids = [
-        f"memory_{uuid.uuid4().hex}"
-        for _ in chunks
-    ]
-
-    # --------------------------------------------------------
-    # GENERATE EMBEDDINGS
-    # --------------------------------------------------------
-
-    try:
-
-        embeddings = embedder.encode(
-            chunks
-        ).tolist()
-
-    except Exception as e:
-
-        return (
-            "[RAG Error]: "
-            f"Failed to generate embeddings: {e}"
-        )
-
-    # --------------------------------------------------------
-    # STORE MEMORY
-    # --------------------------------------------------------
-
-    try:
-
-        collection.upsert(
-            documents=chunks,
-            embeddings=embeddings,
-            ids=ids,
-            metadatas=[
-                {
-                    "source": source,
-                    "type": "long_term_memory"
-                }
-                for _ in chunks
-            ]
-        )
-
-    except Exception as e:
-
-        return (
-            "[RAG Error]: "
-            f"Failed to store memory: {e}"
-        )
-
-    return (
-        "[RAG]: "
-        "Text successfully added to long-term memory. "
-        f"({len(chunks)} chunks)"
-    )
+        return "[RAG Error]: Cannot add empty text to memory."
+    return _store_chunks(_split_text(text.strip()), source, "long_term_memory", "memory")
 
 
-# ============================================================
-# ADD DOCUMENT TO MEMORY
-# ============================================================
-
-def add_document_to_memory(
-    file_path: str
-) -> str:
-    """
-    Read a text document and add it to long-term RAG memory.
-    """
-
+def add_document_to_memory(file_path: str) -> str:
     if not file_path or not file_path.strip():
-
-        return (
-            "[RAG Error]: "
-            "File path cannot be empty."
-        )
-
-    clean_path = (
-        file_path
-        .strip()
-        .strip("'\"")
-    )
-
-    # --------------------------------------------------------
-    # NORMALIZE ROOT-STYLE PATH
-    # --------------------------------------------------------
-
+        return "[RAG Error]: File path cannot be empty."
+    clean_path = file_path.strip().strip("'\"")
     if clean_path.startswith("/"):
+        clean_path = clean_path.lstrip("/\\")
 
-        clean_path = clean_path.lstrip(
-            "/\\"
-        )
-
-    # --------------------------------------------------------
-    # PROJECT ROOT
-    # --------------------------------------------------------
-
-    project_root = os.path.abspath(
-        os.path.join(
-            os.path.dirname(__file__),
-            ".."
-        )
-    )
-
-    # --------------------------------------------------------
-    # RESOLVE RELATIVE PATH
-    # --------------------------------------------------------
-
-    if not os.path.isabs(
-        clean_path
-    ):
-
-        clean_path = os.path.join(
-            project_root,
-            clean_path
-        )
-
-    clean_path = os.path.normpath(
-        clean_path
-    )
-
-    # --------------------------------------------------------
-    # CHECK FILE
-    # --------------------------------------------------------
-
-    if not os.path.isfile(
-        clean_path
-    ):
-
-        return (
-            "[RAG Error]: "
-            f"File '{clean_path}' was not found."
-        )
-
-    # --------------------------------------------------------
-    # READ FILE
-    # --------------------------------------------------------
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    if not os.path.isabs(clean_path):
+        clean_path = os.path.join(project_root, clean_path)
+    clean_path = os.path.normpath(clean_path)
 
     try:
+        if os.path.commonpath([project_root, clean_path]) != project_root:
+            return "[RAG Error]: File path is outside the project directory."
+    except ValueError:
+        return "[RAG Error]: Invalid file path."
 
-        with open(
-            clean_path,
-            "r",
-            encoding="utf-8"
-        ) as file:
+    if not os.path.isfile(clean_path):
+        return "[RAG Error]: Requested file was not found."
 
+    try:
+        with open(clean_path, "r", encoding="utf-8") as file:
             content = file.read()
+    except (OSError, UnicodeError):
+        return "[RAG Error]: Failed to read the requested file."
 
-    except Exception as e:
-
-        return (
-            "[RAG Error]: "
-            f"Failed to read file: {e}"
-        )
-
-    # --------------------------------------------------------
-    # SPLIT DOCUMENT
-    # --------------------------------------------------------
-
-    chunks = _split_text(
-        content
-    )
-
+    chunks = _split_text(content)
     if not chunks:
+        return "[RAG]: The file is empty."
 
-        return (
-            "[RAG]: "
-            "The file is empty."
-        )
-
-    file_name = os.path.basename(
-        clean_path
-    )
-
-    ids = [
-        f"document_{uuid.uuid4().hex}"
-        for _ in chunks
-    ]
-
-    # --------------------------------------------------------
-    # GENERATE EMBEDDINGS
-    # --------------------------------------------------------
-
-    try:
-
-        embeddings = embedder.encode(
-            chunks
-        ).tolist()
-
-    except Exception as e:
-
-        return (
-            "[RAG Error]: "
-            f"Failed to generate embeddings: {e}"
-        )
-
-    # --------------------------------------------------------
-    # STORE DOCUMENT
-    # --------------------------------------------------------
-
-    try:
-
-        collection.upsert(
-            documents=chunks,
-            embeddings=embeddings,
-            ids=ids,
-            metadatas=[
-                {
-                    "source": clean_path,
-                    "type": "document",
-                    "file_name": file_name
-                }
-                for _ in chunks
-            ]
-        )
-
-    except Exception as e:
-
-        return (
-            "[RAG Error]: "
-            f"Failed to store document: {e}"
-        )
-
-    return (
-        "[RAG]: "
-        f"'{file_name}' was successfully "
-        "indexed into memory. "
-        f"({len(chunks)} chunks)"
-    )
+    file_name = os.path.basename(clean_path)
+    return _store_chunks(chunks, clean_path, "document", "document", file_name)
 
 
-# ============================================================
-# SEARCH MEMORY
-# ============================================================
-
-def search_memory(
-    query: str,
-    n_results: int = 2
-) -> str:
-    """
-    Search long-term RAG memory for relevant information.
-    """
-
+def search_memory(query: str, n_results: int = 2) -> str:
     if not query or not query.strip():
         return ""
-
-    if n_results <= 0:
+    if isinstance(n_results, bool) or not isinstance(n_results, int):
         n_results = 2
+    n_results = max(1, min(n_results, 10))
 
     try:
-
-        query_embedding = embedder.encode(
-            [query]
-        ).tolist()
-
-        results = collection.query(
-            query_embeddings=query_embedding,
-            n_results=n_results
-        )
-
-        documents = results.get(
-            "documents",
-            [[]]
-        )[0]
-
-        if not documents:
-            return ""
-
-        return "\n---\n".join(
-            documents
-        )
-
-    except Exception as e:
-
-        print(
-            f"[RAG Search Error]: {e}"
-        )
-
+        query_embedding = _get_embedder().encode([query]).tolist()
+        results = collection.query(query_embeddings=query_embedding, n_results=n_results)
+        documents = results.get("documents", [[]])[0]
+        return "\n---\n".join(documents) if documents else ""
+    except Exception as exc:
+        print(f"[RAG Search Error]: {type(exc).__name__}")
         return ""
