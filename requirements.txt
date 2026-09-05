@@ -13,3 +13,4 @@ gtts>=2.3.0
 duckduckgo-search>=3.9.0
 diffusers>=0.21.0
 python-dotenv>=1.0.0
+pytest>=8.0.0
