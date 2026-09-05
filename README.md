@@ -92,38 +92,134 @@ Long-term information can be stored in local RAG memory and retrieved through se
 
 ## 🚀 Installation
 
-### 1. Clone
+TalhaGPT is not limited to Windows. The project can be installed on **Windows, macOS, and Linux**.
+
+### Windows
+
+#### 1. Install Python
+
+Install Python 3.12 or newer and make sure Python is available in your PATH.
+
+#### 2. Install Ollama
+
+Download and install Ollama for Windows from the official Ollama website.
+
+#### 3. Clone TalhaGPT
+
+```powershell
+git clone https://github.com/dinguk0624/TalhaGPT.git
+cd TalhaGPT
+```
+
+#### 4. Install dependencies
+
+```powershell
+py -m pip install -r requirements.txt
+```
+
+#### 5. Install the model
+
+```powershell
+ollama pull qwen3:8b
+```
+
+#### 6. Run TalhaGPT
+
+```powershell
+py main.py
+```
+
+### macOS
+
+#### 1. Install Python
+
+Install Python 3.12 or newer. Homebrew users can run:
+
+```bash
+brew install python
+```
+
+#### 2. Install Ollama
+
+Install Ollama for macOS from the official Ollama website and make sure the Ollama application/service is running.
+
+#### 3. Clone TalhaGPT
 
 ```bash
 git clone https://github.com/dinguk0624/TalhaGPT.git
 cd TalhaGPT
 ```
 
-### 2. Install dependencies
+#### 4. Install dependencies
 
 ```bash
-pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 ```
 
-### 3. Install the model
-
-Install Ollama, then:
+#### 5. Install the model
 
 ```bash
 ollama pull qwen3:8b
 ```
 
-### 4. Run
+#### 6. Run TalhaGPT
 
 ```bash
-python main.py
+python3 main.py
 ```
 
-### 5. Run tests
+### Linux
+
+#### 1. Install Python
+
+Install Python 3.12 or newer using your distribution's package manager or the official Python installation method.
+
+#### 2. Install Ollama
+
+Install Ollama using the official Linux installation instructions. For supported Linux systems:
 
 ```bash
-pytest -q
+curl -fsSL https://ollama.com/install.sh | sh
 ```
+
+Start Ollama if it is not already running:
+
+```bash
+ollama serve
+```
+
+#### 3. Clone TalhaGPT
+
+```bash
+git clone https://github.com/dinguk0624/TalhaGPT.git
+cd TalhaGPT
+```
+
+#### 4. Install dependencies
+
+```bash
+python3 -m pip install -r requirements.txt
+```
+
+#### 5. Install the model
+
+```bash
+ollama pull qwen3:8b
+```
+
+#### 6. Run TalhaGPT
+
+```bash
+python3 main.py
+```
+
+### Run tests (all platforms)
+
+```bash
+python -m pytest -q
+```
+
+> **Note:** Some system-level tools may behave differently across operating systems. In particular, application launching, screen capture, and other OS-specific functionality may require platform-specific support or configuration.
 
 ## ⚙️ Configuration
 
