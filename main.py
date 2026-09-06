@@ -20,14 +20,14 @@ def main():
         memory = ConversationMemory()
         logger.info("Conversation memory initialized")
     except Exception as e:
-        logger.error(f"Failed to initialize memory: {e}", exc_info=True)
+        logger.error("Failed to initialize memory: %s", e, exc_info=True)
         memory = None
 
     try:
         registry = create_tool_registry()
         logger.info("Tool registry created")
     except Exception as e:
-        logger.error(f"Failed to create tool registry: {e}", exp_info=True)
+        logger.error("Failed to create tool registry: %s", e, exc_info=True)
         return
 
     agent = Agent(
@@ -48,7 +48,7 @@ def main():
             speak("TalhaGPT is ready.")
             logger.info("Startup voice message played")
         except Exception as e:
-            logger.error(f"Voice error at startup: {e}", exp_info=True)
+            logger.error("Voice error at startup: %s", e, exc_info=True)
             print(f"[Voice Error]: {e}")
 
     while True:
@@ -68,7 +68,7 @@ def main():
             break
 
         user_message = {"role": "user", "content": user_input}
-        logger.debug(f"User input: {user_input}")
+        logger.debug("User input: %s", user_input)
 
         print("\n🤖 TalhaGPT: ", end="", flush=True)
 
@@ -78,19 +78,19 @@ def main():
                 on_token=lambda token: print(token, end="", flush=True),
             )
         except Exception as e:
-            logger.error(f"Agent error: {e}", exp_info=True)
+            logger.error("Agent error: %s", e, exc_info=True)
             print(f"\n[Agent Error]: {e}")
             continue
 
-        print()  # newline after streamed response
-        logger.debug(f"Agent response: {result}")
+        print()
+        logger.debug("Agent response: %s", result)
 
         if ENABLE_VOICE:
             try:
                 speak(result)
                 logger.debug("Response played via voice")
             except Exception as e:
-                logger.error(f"Voice output error: {e}", exp_info=True)
+                logger.error("Voice output error: %s", e, exp_info=True)
                 print(f"[Voice Error]: {e}")
 
 
@@ -98,6 +98,6 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        logger.critical(f"Unhandled exception: {e}", exp_info=True)
+        logger.critical("Unhandled exception: %s", e, exp_info=True)
         print(f"[Critical Error]: {e}")
         raise
