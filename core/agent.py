@@ -11,18 +11,17 @@ logger = logging.getLogger(__name__)
 
 OLLAMA_OPTIONS = {
     "num_ctx": 4096,
-    "num_predict": 512,
+    "num_predict": 256,
     "temperature": 0.7,
     "top_p": 0.9,
+    "repeat_penalty": 1.3,
 }
 
 KEEP_ALIVE = "30m"
 MAX_HISTORY_MSG_CHARS = 2000
 
-# Tools that can affect the host system — optional user confirm
 RESTRICTED_TOOLS = frozenset({"launch_app", "capture_screen"})
 
-# Keywords that suggest a tool may be needed (TR + EN)
 _TOOL_HINTS = re.compile(
     r"("
     r"hava|weather|sıcak|soguk|"
@@ -41,13 +40,32 @@ _TOOL_HINTS = re.compile(
 
 
 def message_likely_needs_tools(text: str) -> bool:
-    """Heuristic: skip tool schemas for pure chat → much faster."""
     if not text or not text.strip():
         return False
     stripped = text.strip()
     if len(stripped) > 120:
         return True
     return bool(_TOOL_HINTS.search(stripped))
+
+
+def _collapse_repeated_lines(text: str) -> str:
+    """Drop consecutive duplicate lines (model repetition loops)."""
+    lines = text.splitlines()
+    out: list[str] = []
+    for line in lines:
+        if out and line == out[-1] and line.strip():
+            continue
+        out.append(line)
+    collapsed = "\n".join(out).strip()
+
+    # Same full paragraph pasted many times without newlines
+    if collapsed.count("\n") == 0 and len(collapsed) > 80:
+        half = len(collapsed) // 2
+        for size in range(min(half, 200), 20, -1):
+            unit = collapsed[:size]
+            if unit and collapsed == unit * (len(collapsed) // size):
+                return unit.strip()
+    return collapsed
 
 
 class Agent:
@@ -85,7 +103,7 @@ class Agent:
                 if isinstance(parsed, dict):
                     return parsed
             except json.JSONDecodeError as exc:
-                logger.warning("Invalid tool arguments: %s", exc)
+                logger.warning("Invalid tool arguments: %s", exp)
         return {}
 
     def _limit_tool_output(self, value) -> str:
@@ -158,7 +176,7 @@ class Agent:
 
         stream = self.client.chat(**kwargs)
 
-        content_parts: list[str] = []
+        accumulated = ""
         tool_calls = []
         raw_message = None
 
@@ -166,13 +184,24 @@ class Agent:
             raw_message = chunk.message
             piece = raw_message.content or ""
             if piece:
-                content_parts.append(piece)
-                if on_token is not None:
-                    on_token(piece)
+                # Support both delta chunks and cumulative full-text chunks
+                if accumulated and piece.startswith(accumulated):
+                    delta = piece[len(accumulated) :]
+                    accumulated = piece
+                elif accumulated and accumulated.startswith(piece):
+                    # occasional out-of-order / empty progress — ignore
+                    delta = ""
+                else:
+                    delta = piece
+                    accumulated += piece
+
+                if delta and on_token is not None:
+                    on_token(delta)
+
             if use_tools and raw_message.tool_calls:
                 tool_calls = list(raw_message.tool_calls)
 
-        return "".join(content_parts), tool_calls, raw_message
+        return accumulated, tool_calls, raw_message
 
     def _execute_tool(self, tool_name: str, arguments: dict) -> str:
         if tool_name in RESTRICTED_TOOLS and self.require_confirm:
@@ -190,19 +219,17 @@ class Agent:
             return f"Error: Tool '{tool_name}' was not found."
         try:
             return self.tool_registry.execute(tool_name, arguments)
-        except Exception as exc:
+        except Exception as exp:
             logger.exception("Tool execution failed: %s", tool_name)
-            return f"Error executing tool '{tool_name}': {exc}"
+            return f"Error executing tool '{tool_name}': {exp}"
 
     def run(
         self,
         messages: list[dict],
         on_token: Callable[[str], None] | None = None,
     ) -> str:
-        """Run the agent loop."""
         messages = self._ensure_system_prompt(self._prepare_messages(messages))
 
-        # Decide once per user turn whether tool schemas are worth the cost
         last_user = ""
         for m in reversed(messages):
             if isinstance(m, dict) and m.get("role") == "user":
@@ -227,17 +254,19 @@ class Agent:
                     )
 
         for step in range(self.max_steps):
-            logger.info("Agent step %s/%s (tools=%s)", step + 1, self.max_steps, use_tools)
+            logger.info(
+                "Agent step %s/%s (tools=%s)", step + 1, self.max_steps, use_tools
+            )
             try:
                 content, tool_calls, raw_message = self._stream_chat(
                     messages, on_token=on_token, use_tools=use_tools
                 )
-            except Exception as exc:
+            except Exception as exp:
                 logger.exception("Model execution failed")
-                return f"Model execution error: {exc}"
+                return f"Model execution error: {exp}"
 
             if not tool_calls:
-                content = (content or "").strip()
+                content = _collapse_repeated_lines((content or "").strip())
                 if not content:
                     if step + 1 < self.max_steps:
                         messages.append(
@@ -255,7 +284,6 @@ class Agent:
                 self._save_message("assistant", content)
                 return content
 
-            # Tool path — keep tools enabled for subsequent steps in this turn
             use_tools = True
 
             if raw_message is not None:
