@@ -96,7 +96,8 @@ def create_tool_registry() -> ToolRegistry:
     registry.register(
         name="launch_app",
         description=(
-            "Launch an allowed application on the computer."
+            "Launch an allowed application on the computer. "
+            "Currently Windows-only."
         ),
         parameters={
             "type": "object",
@@ -163,9 +164,9 @@ def create_tool_registry() -> ToolRegistry:
                     "type": "integer",
                     "description": (
                         "The maximum number of relevant "
-                        "memory chunks to return."
+                        "memory chunks to return (default 4)."
                     ),
-                    "default": 2,
+                    "default": 4,
                 },
             },
             "required": ["query"],
@@ -252,7 +253,8 @@ def create_tool_registry() -> ToolRegistry:
     registry.register(
         name="capture_screen",
         description=(
-            "Capture a screenshot of the computer screen."
+            "Capture a screenshot of the computer screen and "
+            "save it under the screenshots/ folder."
         ),
         parameters={
             "type": "object",
@@ -266,4 +268,3 @@ def create_tool_registry() -> ToolRegistry:
     # ========================================================
 
     return registry
-

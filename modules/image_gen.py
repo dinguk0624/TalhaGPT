@@ -1,37 +1,62 @@
 # modules/image_gen.py
 import os
+
 import torch
 from diffusers import AutoPipelineForText2Image
 
 pipe = None
+device = None
+
 
 def init_image_pipeline():
-    global pipe
-    if pipe is None:
-        print("[Görsel Modülü]: SDXL Turbo modeli RTX 4060 GPU üzerine yükleniyor...")
-        # SDXL Turbo: 8GB VRAM için çok hızlı ve yüksek kaliteli resim üretir
-        pipe = AutoPipelineForText2Image.from_pretrained(
-            "stabilityai/sdxl-turbo", 
-            torch_dtype=torch.float16, 
-            variant="fp16"
-        )
-        pipe.to("cuda")
+    """Lazy-load SDXL Turbo with automatic CUDA / CPU selection."""
+    global pipe, device
+    if pipe is not None:
+        return
+
+    if torch.cuda.is_available():
+        device = "cuda"
+        dtype = torch.float16
+        variant = "fp16"
+        print("[Görsel Modülü]: CUDA bulundu → SDXL Turbo GPU (fp16) üzerine yükleniyor...")
+    else:
+        device = "cpu"
+        dtype = torch.float32
+        variant = None
+        print("[Görsel Modülü]: CUDA bulunamadı → CPU kullanılacak (çok yavaş olabilir).")
+
+    pipe = AutoPipelineForText2Image.from_pretrained(
+        "stabilityai/sdxl-turbo",
+        torch_dtype=dtype,
+        variant=variant,
+    )
+    pipe.to(device)
+
 
 def generate_image(prompt: str) -> str:
-    """Verilen İngilizce istemle (prompt) 512x512 görsel üretir ve kaydeder."""
+    """Generate a 512x512 image from the given prompt and save it."""
+    if not prompt or not str(prompt).strip():
+        return "[Görsel Hatası]: Prompt boş olamaz."
+
     try:
         init_image_pipeline()
-        print(f"[Görsel Modülü]: '{prompt}' için görsel çiziliyor...")
-        
-        # 1-2 adımda ışık hızında üretim (SDXL Turbo özelliği)
-        image = pipe(prompt=prompt, num_inference_steps=2, guidance_scale=0.0).images[0]
-        
+        print(f"[Görsel Modülü]: '{prompt}' için görsel çiziliyor ({device})...")
+
+        # SDXL Turbo: 1-2 step fast generation
+        image = pipe(
+            prompt=prompt,
+            num_inference_steps=2,
+            guidance_scale=0.0,
+        ).images[0]
+
         output_dir = "generated_images"
         os.makedirs(output_dir, exist_ok=True)
-        
-        filename = f"{output_dir}/resim_{len(os.listdir(output_dir)) + 1}.png"
+
+        existing = len([f for f in os.listdir(output_dir) if f.endswith(".png")])
+        filename = f"{output_dir}/resim_{existing + 1}.png"
         image.save(filename)
-        
-        return f"[Başarılı]: Görsel başarıyla üretildi ve '{filename}' yoluna kaydedildi!"
+
+        abs_path = os.path.abspath(filename)
+        return f"[Başarılı]: Görsel üretildi → {abs_path}"
     except Exception as e:
         return f"[Görsel Hatası]: {e}"

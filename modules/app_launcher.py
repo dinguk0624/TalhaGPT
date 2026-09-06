@@ -1,10 +1,12 @@
 # modules/app_launcher.py
 import logging
+import platform
 import subprocess
 
 logger = logging.getLogger(__name__)
 
 # Only explicitly allowlisted Windows applications may be launched.
+# This keeps the tool safe from arbitrary executable execution.
 APPS = {
     "hesap makinesi": "calc.exe",
     "not defteri": "notepad.exe",
@@ -20,7 +22,13 @@ APPS = {
 
 
 def launch_app(user_input: str) -> str:
-    """Launch an explicitly allowlisted Windows application."""
+    """Launch an explicitly allowlisted application (currently Windows-only)."""
+    if platform.system() != "Windows":
+        return (
+            "[Uygulama Hatası]: Uygulama başlatma şu an yalnızca Windows'ta destekleniyor. "
+            f"Mevcut sistem: {platform.system()}."
+        )
+
     if not isinstance(user_input, str) or not user_input.strip():
         return "[Uygulama Hatası]: Hangi uygulamanın açılacağı belirtilmedi."
 

@@ -21,22 +21,28 @@ db_client = chromadb.PersistentClient(path="./vector_db")
 collection = db_client.get_or_create_collection(name="talha_knowledge")
 
 
-def _split_text(text: str, chunk_size: int = 500) -> list[str]:
+def _split_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str]:
+    """Simple paragraph + fixed-size chunking with optional overlap."""
     if not text or not text.strip():
         return []
     if chunk_size <= 0:
         chunk_size = 500
+    if overlap < 0:
+        overlap = 0
+    if overlap >= chunk_size:
+        overlap = chunk_size // 5
+
     raw_chunks = [p.strip() for p in text.split("\n\n") if p.strip()]
     chunks = []
     for paragraph in raw_chunks:
         if len(paragraph) <= chunk_size:
             chunks.append(paragraph)
         else:
-            chunks.extend(
-                paragraph[i:i + chunk_size].strip()
-                for i in range(0, len(paragraph), chunk_size)
-                if paragraph[i:i + chunk_size].strip()
-            )
+            step = chunk_size - overlap
+            for i in range(0, len(paragraph), step):
+                piece = paragraph[i : i + chunk_size].strip()
+                if piece:
+                    chunks.append(piece)
     return chunks
 
 
@@ -108,11 +114,11 @@ def add_document_to_memory(file_path: str) -> str:
     return _store_chunks(chunks, clean_path, "document", "document", file_name)
 
 
-def search_memory(query: str, n_results: int = 2) -> str:
+def search_memory(query: str, n_results: int = 4) -> str:
     if not query or not query.strip():
         return ""
     if isinstance(n_results, bool) or not isinstance(n_results, int):
-        n_results = 2
+        n_results = 4
     n_results = max(1, min(n_results, 10))
 
     try:
