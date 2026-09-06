@@ -14,7 +14,12 @@ def test_limit_tool_output():
         pass
 
     agent = Agent("test", Registry(), max_steps=1)
+    # Force a small limit so the truncation path is actually exercised
+    agent.tool_output_max_chars = 50
+
     original = "x" * 100
     limited = agent._limit_tool_output(original)
-    assert limited.startswith("x" * 100) is False
+
+    assert limited.startswith("x" * 50)
     assert limited.endswith("[Tool output truncated.]")
+    assert len(limited) < len(original) + 30

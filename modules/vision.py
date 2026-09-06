@@ -1,11 +1,18 @@
 import os
 from datetime import datetime
 
-import pyautogui
-
 
 def capture_screen() -> str:
-    """Capture a screenshot and save it permanently under screenshots/."""
+    """Capture a screenshot and save it permanently under screenshots/.
+
+    pyautogui is imported lazily so the module can be imported on headless
+    CI runners (no DISPLAY) without raising KeyError.
+    """
+    try:
+        import pyautogui  # lazy: requires a display only when actually called
+    except Exception as e:
+        return f"[Ekran Görüntüsü Hatası]: pyautogui yüklenemedi ({e})"
+
     try:
         os.makedirs("screenshots", exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

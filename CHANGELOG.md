@@ -15,6 +15,8 @@ All notable changes to TalhaGPT are documented here.
 - `capture_screen`: Screenshot was being deleted immediately after capture. Now saved permanently under `screenshots/` with a timestamped filename and full path returned.
 - `generate_image`: Hardcoded CUDA assumption removed. Now auto-detects CUDA and falls back to CPU with a clear warning.
 - `launch_app`: Added explicit platform check. Returns a clear error on non-Windows systems instead of failing silently.
+- CI: Lazy-import `pyautogui` so headless runners (no `DISPLAY`) no longer crash during test collection.
+- Test: `test_limit_tool_output` now correctly forces a small truncation limit.
 
 ### Improved
 - RAG: Added simple chunk overlap, raised default `n_results` from 2 → 4.
