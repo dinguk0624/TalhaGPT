@@ -19,6 +19,9 @@ All notable changes to TalhaGPT are documented here.
 - Test: `test_limit_tool_output` now correctly forces a small truncation limit.
 - CI: Suppress third-party `torch.jit.script` FutureWarning via `pytest.ini`.
 
+### Added
+- **Streaming responses**: Agent streams tokens live to the terminal via `on_token` callback (Ollama `stream=True`).
+
 ### Improved
 - RAG: Added simple chunk overlap, raised default `n_results` from 2 → 4.
 - Tool descriptions updated to reflect Windows-only launcher and new screenshot behavior.

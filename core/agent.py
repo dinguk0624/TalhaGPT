@@ -32,7 +32,7 @@ class Agent:
                 if isinstance(parsed, dict):
                     return parsed
             except json.JSONDecodeError as exc:
-                logger.warning("Invalid tool arguments: %s", exp)
+                logger.warning("Invalid tool arguments: %s", exc)
         return {}
 
     def _limit_tool_output(self, value) -> str:
@@ -84,7 +84,11 @@ class Agent:
         messages: list,
         on_token: Callable[[str], None] | None = None,
     ):
-        """Stream a single chat turn. Returns (content, tool_calls, raw_message)."""
+        """Stream one chat turn.
+
+        Returns (full_content, tool_calls, raw_message).
+        on_token is called with each text piece as it arrives.
+        """
         stream = self.client.chat(
             model=self.model_name,
             messages=messages,
@@ -106,8 +110,7 @@ class Agent:
             if raw_message.tool_calls:
                 tool_calls = list(raw_message.tool_calls)
 
-        content = "".join(content_parts)
-        return content, tool_calls, raw_message
+        return "".join(content_parts), tool_calls, raw_message
 
     def run(
         self,
@@ -116,8 +119,7 @@ class Agent:
     ) -> str:
         """Run the agent loop.
 
-        on_token: optional callback invoked with each streamed text chunk
-                  (used for live terminal output).
+        on_token: optional callback for each streamed text chunk (live output).
         """
         messages = self._ensure_system_prompt(self._prepare_messages(messages))
 
@@ -138,11 +140,8 @@ class Agent:
         for step in range(self.max_steps):
             logger.info("Agent step %s/%s", step + 1, self.max_steps)
             try:
-                # Only stream tokens to the UI when this is likely a final answer.
-                # Tool-call steps still use streaming internally but suppress on_token
-                # until we know there are no tool calls — handled by buffering first.
                 content, tool_calls, raw_message = self._stream_chat(
-                    messages, on_token=None
+                    messages, on_token=on_token
                 )
             except Exception as exc:
                 logger.exception("Model execution failed")
@@ -155,21 +154,19 @@ class Agent:
                         messages.append(
                             {
                                 "role": "user",
-                                "content": "Provide a clear final answer to the user's request.",
+                                "content": (
+                                    "Provide a clear final answer to the user's request."
+                                ),
                             }
                         )
                         continue
                     return "Model returned an empty response."
 
-                # Re-stream for display: we already have full content, emit it live-like
-                if on_token is not None:
-                    on_token(content)
-
                 messages.append({"role": "assistant", "content": content})
                 self._save_message("assistant", content)
                 return content
 
-            # Tool-calling step — keep raw message for ollama conversation state
+            # Tool-calling turn
             if raw_message is not None:
                 messages.append(raw_message)
             else:
