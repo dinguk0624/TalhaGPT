@@ -17,6 +17,7 @@ All notable changes to TalhaGPT are documented here.
 - `launch_app`: Added explicit platform check. Returns a clear error on non-Windows systems instead of failing silently.
 - CI: Lazy-import `pyautogui` so headless runners (no `DISPLAY`) no longer crash during test collection.
 - Test: `test_limit_tool_output` now correctly forces a small truncation limit.
+- CI: Suppress third-party `torch.jit.script` FutureWarning via `pytest.ini`.
 
 ### Improved
 - RAG: Added simple chunk overlap, raised default `n_results` from 2 → 4.
