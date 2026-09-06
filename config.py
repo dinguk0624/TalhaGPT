@@ -1,9 +1,25 @@
 # config.py
 
 import os
+from pathlib import Path
+
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# ============================================================
+# VERSION
+# ============================================================
+
+def _read_version() -> str:
+    path = Path(__file__).resolve().parent / "VERSION"
+    try:
+        return path.read_text(encoding="utf-8").strip() or "0.0.0"
+    except OSError:
+        return "0.0.0"
+
+
+VERSION = _read_version()
 
 # ============================================================
 # MODEL CONFIGURATION
@@ -13,11 +29,18 @@ MODEL_NAME = os.getenv("MODEL_NAME", "qwen3:8b")
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 
 # ============================================================
-# VOICE CONFIGURATION
+# VOICE / SAFETY
 # ============================================================
 
 TTS_LANGUAGE = os.getenv("TTS_LANGUAGE", "tr")
 ENABLE_VOICE = os.getenv("ENABLE_VOICE", "False").lower() in ("true", "1", "yes")
+
+# Ask before running potentially sensitive tools (launch_app, capture_screen)
+REQUIRE_TOOL_CONFIRM = os.getenv("REQUIRE_TOOL_CONFIRM", "True").lower() in (
+    "true",
+    "1",
+    "yes",
+)
 
 # ============================================================
 # SYSTEM PROMPT
@@ -37,7 +60,7 @@ CORE BEHAVIOR:
 4. After receiving a tool result, evaluate it and provide
    a clear answer to the user.
 5. Answer simple questions directly without using tools
-   when possible.
+   when possible. Prefer short, clear answers.
 
 MEMORY RULES:
 
@@ -58,44 +81,22 @@ MEMORY RULES:
 TOOL RULES:
 
 10. Use get_weather for weather-related questions.
-
-11. Use get_system_status for questions about CPU, RAM,
-    or computer system resources.
-
-12. Use launch_app when the user asks you to launch an
-    application.
-
-13. Use add_document_to_memory when the user wants to add
-    a document to long-term RAG memory.
-
-14. Use web_search when up-to-date information from the
-    internet is required.
-
-15. Use fetch_web_page when the contents of a specific
-    web page need to be read.
-
-16. Use capture_screen when the user asks to capture or
-    analyze the computer screen.
-
-17. Use generate_image when the user asks you to generate
-    an image.
-
-18. Use read_file when the user asks to read, open, show,
-    or inspect a local file (README, source code, logs, etc.).
-
-19. Use list_directory when the user asks what files are in
-    a folder or wants to browse the project directory.
+11. Use get_system_status for CPU, RAM, or system resources.
+12. Use launch_app when the user asks to launch an application.
+13. Use add_document_to_memory to index a document into RAG.
+14. Use web_search for up-to-date internet information.
+15. Use fetch_web_page to read a specific URL.
+16. Use capture_screen when asked to capture the screen.
+17. Use generate_image when asked to generate an image.
+18. Use read_file to read/open/show a local file.
+19. Use list_directory to browse folders.
 
 IMPORTANT:
 
 - Never invent information that the user did not provide.
 - If a tool fails, do not hide the failure.
 - Do not repeatedly call the same tool unnecessarily.
-- If a tool result is sufficient, do not make another
-  unnecessary tool call.
-- Do not delete, modify, or perform destructive operations
-  on files unless explicitly requested by the user.
+- Do not delete or modify files unless explicitly asked.
 - Keep responses concise, clear, and useful.
 - Respond in the user's language when appropriate.
-- Be helpful, accurate, and transparent.
 """
