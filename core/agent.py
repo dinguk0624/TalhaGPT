@@ -1,5 +1,6 @@
 import json
 import logging
+from typing import Callable
 
 import ollama
 
@@ -31,14 +32,14 @@ class Agent:
                 if isinstance(parsed, dict):
                     return parsed
             except json.JSONDecodeError as exc:
-                logger.warning("Invalid tool arguments: %s", exc)
+                logger.warning("Invalid tool arguments: %s", exp)
         return {}
 
     def _limit_tool_output(self, value) -> str:
         text = str(value)
         if len(text) <= self.tool_output_max_chars:
             return text
-        return text[:self.tool_output_max_chars] + "\n[Tool output truncated.]"
+        return text[: self.tool_output_max_chars] + "\n[Tool output truncated.]"
 
     def _save_message(self, role: str, content: str = "", **kwargs) -> None:
         if self.memory is None:
@@ -59,20 +60,65 @@ class Agent:
             return []
 
     def _prepare_messages(self, messages: list[dict]) -> list[dict]:
-        stored = [m for m in self._load_memory_messages() if isinstance(m, dict) and m.get("role") != "tool"]
+        stored = [
+            m
+            for m in self._load_memory_messages()
+            if isinstance(m, dict) and m.get("role") != "tool"
+        ]
         current = [dict(m) for m in messages if isinstance(m, dict)]
         return stored + [m for m in current if m not in stored]
 
     def _ensure_system_prompt(self, messages: list[dict]) -> list[dict]:
         result = [dict(m) for m in messages if isinstance(m, dict)]
-        system_index = next((i for i, m in enumerate(result) if m.get("role") == "system"), None)
+        system_index = next(
+            (i for i, m in enumerate(result) if m.get("role") == "system"), None
+        )
         if system_index is None:
             result.insert(0, {"role": "system", "content": SYSTEM_PROMPT})
         elif not result[system_index].get("content"):
             result[system_index]["content"] = SYSTEM_PROMPT
         return result
 
-    def run(self, messages: list[dict]) -> str:
+    def _stream_chat(
+        self,
+        messages: list,
+        on_token: Callable[[str], None] | None = None,
+    ):
+        """Stream a single chat turn. Returns (content, tool_calls, raw_message)."""
+        stream = self.client.chat(
+            model=self.model_name,
+            messages=messages,
+            tools=self.tool_registry.get_schemas(),
+            stream=True,
+        )
+
+        content_parts: list[str] = []
+        tool_calls = []
+        raw_message = None
+
+        for chunk in stream:
+            raw_message = chunk.message
+            piece = raw_message.content or ""
+            if piece:
+                content_parts.append(piece)
+                if on_token is not None:
+                    on_token(piece)
+            if raw_message.tool_calls:
+                tool_calls = list(raw_message.tool_calls)
+
+        content = "".join(content_parts)
+        return content, tool_calls, raw_message
+
+    def run(
+        self,
+        messages: list[dict],
+        on_token: Callable[[str], None] | None = None,
+    ) -> str:
+        """Run the agent loop.
+
+        on_token: optional callback invoked with each streamed text chunk
+                  (used for live terminal output).
+        """
         messages = self._ensure_system_prompt(self._prepare_messages(messages))
 
         if self.memory is not None:
@@ -82,36 +128,58 @@ class Agent:
                     self._save_message(
                         message.get("role", "user"),
                         message.get("content", ""),
-                        **{k: v for k, v in message.items() if k not in {"role", "content"}},
+                        **{
+                            k: v
+                            for k, v in message.items()
+                            if k not in {"role", "content"}
+                        },
                     )
 
         for step in range(self.max_steps):
             logger.info("Agent step %s/%s", step + 1, self.max_steps)
             try:
-                response = self.client.chat(
-                    model=self.model_name,
-                    messages=messages,
-                    tools=self.tool_registry.get_schemas(),
+                # Only stream tokens to the UI when this is likely a final answer.
+                # Tool-call steps still use streaming internally but suppress on_token
+                # until we know there are no tool calls — handled by buffering first.
+                content, tool_calls, raw_message = self._stream_chat(
+                    messages, on_token=None
                 )
             except Exception as exc:
                 logger.exception("Model execution failed")
                 return f"Model execution error: {exc}"
 
-            response_message = response.message
-            tool_calls = response_message.tool_calls or []
-            content = (response_message.content or "").strip()
-
             if not tool_calls:
+                content = (content or "").strip()
                 if not content:
                     if step + 1 < self.max_steps:
-                        messages.append({"role": "user", "content": "Provide a clear final answer to the user's request."})
+                        messages.append(
+                            {
+                                "role": "user",
+                                "content": "Provide a clear final answer to the user's request.",
+                            }
+                        )
                         continue
                     return "Model returned an empty response."
+
+                # Re-stream for display: we already have full content, emit it live-like
+                if on_token is not None:
+                    on_token(content)
+
                 messages.append({"role": "assistant", "content": content})
                 self._save_message("assistant", content)
                 return content
 
-            messages.append(response_message)
+            # Tool-calling step — keep raw message for ollama conversation state
+            if raw_message is not None:
+                messages.append(raw_message)
+            else:
+                messages.append(
+                    {
+                        "role": "assistant",
+                        "content": content,
+                        "tool_calls": tool_calls,
+                    }
+                )
 
             for tool_call in tool_calls:
                 tool_name = tool_call.function.name
@@ -125,6 +193,8 @@ class Agent:
                         logger.exception("Tool execution failed: %s", tool_name)
                         result = f"Error executing tool '{tool_name}': {exc}"
 
-                messages.append({"role": "tool", "content": self._limit_tool_output(result)})
+                messages.append(
+                    {"role": "tool", "content": self._limit_tool_output(result)}
+                )
 
         return f"The agent reached its maximum limit of {self.max_steps} steps."
