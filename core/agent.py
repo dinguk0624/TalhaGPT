@@ -58,7 +58,6 @@ def _collapse_repeated_lines(text: str) -> str:
         out.append(line)
     collapsed = "\n".join(out).strip()
 
-    # Same full paragraph pasted many times without newlines
     if collapsed.count("\n") == 0 and len(collapsed) > 80:
         half = len(collapsed) // 2
         for size in range(min(half, 200), 20, -1):
@@ -102,8 +101,8 @@ class Agent:
                 parsed = json.loads(arguments)
                 if isinstance(parsed, dict):
                     return parsed
-            except json.JSONDecodeError as exc:
-                logger.warning("Invalid tool arguments: %s", exp)
+            except json.JSONDecodeError as err:
+                logger.warning("Invalid tool arguments: %s", err)
         return {}
 
     def _limit_tool_output(self, value) -> str:
@@ -179,24 +178,34 @@ class Agent:
         accumulated = ""
         tool_calls = []
         raw_message = None
+        repeat_hits = 0
+        last_delta = ""
 
         for chunk in stream:
             raw_message = chunk.message
             piece = raw_message.content or ""
             if piece:
-                # Support both delta chunks and cumulative full-text chunks
                 if accumulated and piece.startswith(accumulated):
                     delta = piece[len(accumulated) :]
                     accumulated = piece
                 elif accumulated and accumulated.startswith(piece):
-                    # occasional out-of-order / empty progress — ignore
                     delta = ""
                 else:
                     delta = piece
                     accumulated += piece
 
-                if delta and on_token is not None:
-                    on_token(delta)
+                if delta:
+                    # Stop feeding the UI if the model starts looping the same chunk
+                    if delta == last_delta and len(delta.strip()) > 10:
+                        repeat_hits += 1
+                        if repeat_hits >= 2:
+                            logger.warning("Repetition detected; stopping stream early")
+                            break
+                    else:
+                        repeat_hits = 0
+                        last_delta = delta
+                    if on_token is not None:
+                        on_token(delta)
 
             if use_tools and raw_message.tool_calls:
                 tool_calls = list(raw_message.tool_calls)
@@ -219,9 +228,9 @@ class Agent:
             return f"Error: Tool '{tool_name}' was not found."
         try:
             return self.tool_registry.execute(tool_name, arguments)
-        except Exception as exp:
+        except Exception as err:
             logger.exception("Tool execution failed: %s", tool_name)
-            return f"Error executing tool '{tool_name}': {exp}"
+            return f"Error executing tool '{tool_name}': {err}"
 
     def run(
         self,
@@ -261,9 +270,9 @@ class Agent:
                 content, tool_calls, raw_message = self._stream_chat(
                     messages, on_token=on_token, use_tools=use_tools
                 )
-            except Exception as exp:
+            except Exception as err:
                 logger.exception("Model execution failed")
-                return f"Model execution error: {exp}"
+                return f"Model execution error: {err}"
 
             if not tool_calls:
                 content = _collapse_repeated_lines((content or "").strip())
