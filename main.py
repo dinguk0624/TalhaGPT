@@ -48,7 +48,7 @@ def main():
             speak("TalhaGPT is ready.")
             logger.info("Startup voice message played")
         except Exception as e:
-            logger.error("Voice error at startup: %s", e, exp_info=True)
+            logger.error("Voice error at startup: %s", e, exc_info=True)
             print(f"[Voice Error]: {e}")
 
     while True:
