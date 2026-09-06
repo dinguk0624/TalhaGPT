@@ -27,7 +27,7 @@ def main():
         registry = create_tool_registry()
         logger.info("Tool registry created")
     except Exception as e:
-        logger.error(f"Failed to create tool registry: {e}", exc_info=True)
+        logger.error(f"Failed to create tool registry: {e}", exp_info=True)
         return
 
     agent = Agent(
