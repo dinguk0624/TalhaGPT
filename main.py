@@ -78,7 +78,7 @@ def main():
                 on_token=lambda token: print(token, end="", flush=True),
             )
         except Exception as e:
-            logger.error(f"Agent error: {e}", exc_info=True)
+            logger.error(f"Agent error: {e}", exp_info=True)
             print(f"\n[Agent Error]: {e}")
             continue
 
@@ -90,7 +90,7 @@ def main():
                 speak(result)
                 logger.debug("Response played via voice")
             except Exception as e:
-                logger.error(f"Voice output error: {e}", exc_info=True)
+                logger.error(f"Voice output error: {e}", exp_info=True)
                 print(f"[Voice Error]: {e}")
 
 
@@ -98,6 +98,6 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        logger.critical(f"Unhandled exception: {e}", exc_info=True)
+        logger.critical(f"Unhandled exception: {e}", exp_info=True)
         print(f"[Critical Error]: {e}")
         raise
