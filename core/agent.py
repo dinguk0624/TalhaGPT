@@ -60,7 +60,7 @@ class Agent:
         msg = dict(message)
         content = msg.get("content")
         if isinstance(content, str) and len(content) > MAX_HISTORY_MSG_CHARS:
-            msg["content"] = content[:MAX_HISTORY_MSG_CHARS] + "\n[...truncated]")
+            msg["content"] = content[:MAX_HISTORY_MSG_CHARS] + "\n[...truncated]"
         return msg
 
     def _save_message(self, role: str, content: str = "", **kwargs) -> None:
