@@ -12,6 +12,9 @@ from core.tools import create_tool_registry
 logger = get_logger("TalhaGPT.main")
 logger.info(f"Starting TalhaGPT with model: {MODEL_NAME} on {OLLAMA_HOST}")
 
+# Avoid keyword typos in exception logging
+_EXC = {"exc_info": True}
+
 
 def main():
     """Start and run the TalhaGPT application."""
@@ -20,14 +23,14 @@ def main():
         memory = ConversationMemory()
         logger.info("Conversation memory initialized")
     except Exception as e:
-        logger.error("Failed to initialize memory: %s", e, exc_info=True)
+        logger.error("Failed to initialize memory: %s", e, **_EXC)
         memory = None
 
     try:
         registry = create_tool_registry()
         logger.info("Tool registry created")
     except Exception as e:
-        logger.error("Failed to create tool registry: %s", e, exc_info=True)
+        logger.error("Failed to create tool registry: %s", e, **_EXC)
         return
 
     agent = Agent(
@@ -48,7 +51,7 @@ def main():
             speak("TalhaGPT is ready.")
             logger.info("Startup voice message played")
         except Exception as e:
-            logger.error("Voice error at startup: %s", e, exp_info=True)
+            logger.error("Voice error at startup: %s", e, **_EXC)
             print(f"[Voice Error]: {e}")
 
     while True:
@@ -78,7 +81,7 @@ def main():
                 on_token=lambda token: print(token, end="", flush=True),
             )
         except Exception as e:
-            logger.error("Agent error: %s", e, EXC_INFO_PLACEHOLDER)
+            logger.error("Agent error: %s", e, **_EXC)
             print(f"\n[Agent Error]: {e}")
             continue
 
@@ -90,7 +93,7 @@ def main():
                 speak(result)
                 logger.debug("Response played via voice")
             except Exception as e:
-                logger.error("Voice output error: %s", e, EXC_INFO_PLACEHOLDER)
+                logger.error("Voice output error: %s", e, **_EXC)
                 print(f"[Voice Error]: {e}")
 
 
@@ -98,6 +101,6 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        logger.critical("Unhandled exception: %s", e, EXC_INFO_PLACEHOLDER)
+        logger.critical("Unhandled exception: %s", e, **_EXC)
         print(f"[Critical Error]: {e}")
         raise
