@@ -12,7 +12,6 @@ from core.tools import create_tool_registry
 logger = get_logger("TalhaGPT.main")
 logger.info(f"Starting TalhaGPT with model: {MODEL_NAME} on {OLLAMA_HOST}")
 
-# Avoid keyword typos in exception logging
 _EXC = {"exc_info": True}
 
 
@@ -20,7 +19,7 @@ def main():
     """Start and run the TalhaGPT application."""
 
     try:
-        memory = ConversationMemory()
+        memory = ConversationMemory(max_history=12)
         logger.info("Conversation memory initialized")
     except Exception as e:
         logger.error("Failed to initialize memory: %s", e, **_EXC)
@@ -36,7 +35,7 @@ def main():
     agent = Agent(
         model_name=MODEL_NAME,
         tool_registry=registry,
-        max_steps=6,
+        max_steps=4,
         memory=memory,
     )
 

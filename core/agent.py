@@ -8,17 +8,31 @@ from config import OLLAMA_HOST, SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
+# Inference knobs — smaller context = faster on 8GB VRAM
+OLLAMA_OPTIONS = {
+    "num_ctx": 4096,
+    "num_predict": 512,
+    "temperature": 0.7,
+    "top_p": 0.9,
+}
+
+# Keep model warm between turns
+KEEP_ALIVE = "30m"
+
+# Cap individual history message size so old long replies don't bloat context
+MAX_HISTORY_MSG_CHARS = 2000
+
 
 class Agent:
     """Main TalhaGPT model/tool execution loop."""
 
-    def __init__(self, model_name: str, tool_registry, max_steps: int = 6, memory=None):
+    def __init__(self, model_name: str, tool_registry, max_steps: int = 4, memory=None):
         self.model_name = model_name
         self.tool_registry = tool_registry
         self.max_steps = max_steps
         self.memory = memory
         self.client = ollama.Client(host=OLLAMA_HOST)
-        self.tool_output_max_chars = 12000
+        self.tool_output_max_chars = 6000
 
     @staticmethod
     def _parse_arguments(arguments) -> dict:
@@ -41,6 +55,14 @@ class Agent:
             return text
         return text[: self.tool_output_max_chars] + "\n[Tool output truncated.]"
 
+    @staticmethod
+    def _trim_message_content(message: dict) -> dict:
+        msg = dict(message)
+        content = msg.get("content")
+        if isinstance(content, str) and len(content) > MAX_HISTORY_MSG_CHARS:
+            msg["content"] = content[:MAX_HISTORY_MSG_CHARS] + "\n[...truncated]")
+        return msg
+
     def _save_message(self, role: str, content: str = "", **kwargs) -> None:
         if self.memory is None:
             return
@@ -61,7 +83,7 @@ class Agent:
 
     def _prepare_messages(self, messages: list[dict]) -> list[dict]:
         stored = [
-            m
+            self._trim_message_content(m)
             for m in self._load_memory_messages()
             if isinstance(m, dict) and m.get("role") != "tool"
         ]
@@ -87,13 +109,14 @@ class Agent:
         """Stream one chat turn.
 
         Returns (full_content, tool_calls, raw_message).
-        on_token is called with each text piece as it arrives.
         """
         stream = self.client.chat(
             model=self.model_name,
             messages=messages,
             tools=self.tool_registry.get_schemas(),
             stream=True,
+            options=OLLAMA_OPTIONS,
+            keep_alive=KEEP_ALIVE,
         )
 
         content_parts: list[str] = []
@@ -117,10 +140,7 @@ class Agent:
         messages: list[dict],
         on_token: Callable[[str], None] | None = None,
     ) -> str:
-        """Run the agent loop.
-
-        on_token: optional callback for each streamed text chunk (live output).
-        """
+        """Run the agent loop."""
         messages = self._ensure_system_prompt(self._prepare_messages(messages))
 
         if self.memory is not None:
@@ -166,7 +186,6 @@ class Agent:
                 self._save_message("assistant", content)
                 return content
 
-            # Tool-calling turn
             if raw_message is not None:
                 messages.append(raw_message)
             else:

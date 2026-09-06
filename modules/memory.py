@@ -7,7 +7,11 @@ from typing import Any
 class ConversationMemory:
     """Persistent conversation memory for TalhaGPT."""
 
-    def __init__(self, max_history: int = 20, file_path: str = "./data/conversation_memory.json"):
+    def __init__(
+        self,
+        max_history: int = 12,
+        file_path: str = "./data/conversation_memory.json",
+    ):
         self.max_history = max_history
         self.file_path = os.path.abspath(file_path)
         self.history: list[dict[str, Any]] = []
@@ -21,7 +25,11 @@ class ConversationMemory:
                 data = json.load(file)
             if not isinstance(data, list):
                 raise ValueError("Memory file must contain a JSON list.")
-            self.history = [m for m in data if isinstance(m, dict) and isinstance(m.get("role"), str)]
+            self.history = [
+                m
+                for m in data
+                if isinstance(m, dict) and isinstance(m.get("role"), str)
+            ]
             self._trim_history()
         except Exception as error:
             print(f"[Memory] Failed to load memory: {error}")
@@ -51,8 +59,6 @@ class ConversationMemory:
             print(f"[Memory] Failed to save memory: {error}")
 
     def add_message(self, role: str, content: str = "", **kwargs: Any) -> None:
-        # Tool execution results are transient context and can be very large.
-        # Keep them out of durable conversation history.
         if role == "tool":
             return
 
