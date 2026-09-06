@@ -48,7 +48,7 @@ def main():
             speak("TalhaGPT is ready.")
             logger.info("Startup voice message played")
         except Exception as e:
-            logger.error("Voice error at startup: %s", e, exc_info=True)
+            logger.error("Voice error at startup: %s", e, exp_info=True)
             print(f"[Voice Error]: {e}")
 
     while True:
@@ -78,7 +78,7 @@ def main():
                 on_token=lambda token: print(token, end="", flush=True),
             )
         except Exception as e:
-            logger.error("Agent error: %s", e, exp_info=True)
+            logger.error("Agent error: %s", e, EXC_INFO_PLACEHOLDER)
             print(f"\n[Agent Error]: {e}")
             continue
 
@@ -90,7 +90,7 @@ def main():
                 speak(result)
                 logger.debug("Response played via voice")
             except Exception as e:
-                logger.error("Voice output error: %s", e, exp_info=True)
+                logger.error("Voice output error: %s", e, EXC_INFO_PLACEHOLDER)
                 print(f"[Voice Error]: {e}")
 
 
@@ -98,6 +98,6 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        logger.critical("Unhandled exception: %s", e, exp_info=True)
+        logger.critical("Unhandled exception: %s", e, EXC_INFO_PLACEHOLDER)
         print(f"[Critical Error]: {e}")
         raise
