@@ -7,6 +7,7 @@ from modules.api_tools import get_weather
 from modules.journal import save_note
 from modules.image_gen import generate_image
 from modules.vision import capture_screen
+from modules.file_reader import read_local_file, list_directory
 
 from modules.rag import (
     add_document_to_memory,
@@ -17,21 +18,13 @@ from .tool_registry import ToolRegistry
 
 
 def create_tool_registry() -> ToolRegistry:
-    """
-    Create and configure the central TalhaGPT tool registry.
-    """
+    """Create and configure the central TalhaGPT tool registry."""
 
     registry = ToolRegistry()
 
-    # ========================================================
-    # WEATHER
-    # ========================================================
-
     registry.register(
         name="get_weather",
-        description=(
-            "Get the current weather for a specified city."
-        ),
+        description="Get the current weather for a specified city.",
         parameters={
             "type": "object",
             "properties": {
@@ -45,15 +38,9 @@ def create_tool_registry() -> ToolRegistry:
         function=get_weather,
     )
 
-    # ========================================================
-    # SYSTEM STATUS
-    # ========================================================
-
     registry.register(
         name="get_system_status",
-        description=(
-            "Get the current computer system resource status."
-        ),
+        description="Get the current computer system resource status.",
         parameters={
             "type": "object",
             "properties": {},
@@ -61,27 +48,18 @@ def create_tool_registry() -> ToolRegistry:
         function=get_system_status,
     )
 
-    # ========================================================
-    # JOURNAL / NOTE MEMORY
-    # ========================================================
-
     registry.register(
         name="save_note",
         description=(
-            "Save information provided by the user to "
-            "persistent local memory. "
-            "Use this tool when the user explicitly asks "
-            "you to remember, save, or store information."
+            "Save information provided by the user to persistent local memory. "
+            "Use when the user asks to remember, save, or store information."
         ),
         parameters={
             "type": "object",
             "properties": {
                 "note": {
                     "type": "string",
-                    "description": (
-                        "The information that should be "
-                        "saved to memory."
-                    ),
+                    "description": "The information that should be saved to memory.",
                 }
             },
             "required": ["note"],
@@ -89,24 +67,15 @@ def create_tool_registry() -> ToolRegistry:
         function=save_note,
     )
 
-    # ========================================================
-    # APP LAUNCHER
-    # ========================================================
-
     registry.register(
         name="launch_app",
-        description=(
-            "Launch an allowed application on the computer. "
-            "Currently Windows-only."
-        ),
+        description="Launch an allowed application on the computer. Currently Windows-only.",
         parameters={
             "type": "object",
             "properties": {
                 "app_name": {
                     "type": "string",
-                    "description": (
-                        "The name of the application."
-                    ),
+                    "description": "The name of the application.",
                 }
             },
             "required": ["app_name"],
@@ -114,25 +83,15 @@ def create_tool_registry() -> ToolRegistry:
         function=launch_app,
     )
 
-    # ========================================================
-    # RAG / DOCUMENT MEMORY
-    # ========================================================
-
     registry.register(
         name="add_document_to_memory",
-        description=(
-            "Add a text document to TalhaGPT's persistent "
-            "RAG memory."
-        ),
+        description="Add a text document to TalhaGPT's persistent RAG memory.",
         parameters={
             "type": "object",
             "properties": {
                 "file_path": {
                     "type": "string",
-                    "description": (
-                        "The path of the text document "
-                        "to add to memory."
-                    ),
+                    "description": "The path of the text document to add to memory.",
                 }
             },
             "required": ["file_path"],
@@ -140,32 +99,19 @@ def create_tool_registry() -> ToolRegistry:
         function=add_document_to_memory,
     )
 
-    # ========================================================
-    # RAG / MEMORY SEARCH
-    # ========================================================
-
     registry.register(
         name="search_memory",
-        description=(
-            "Search TalhaGPT's RAG memory for information "
-            "relevant to the user's query."
-        ),
+        description="Search TalhaGPT's RAG memory for information relevant to the user's query.",
         parameters={
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": (
-                        "The information to search for "
-                        "in memory."
-                    ),
+                    "description": "The information to search for in memory.",
                 },
                 "n_results": {
                     "type": "integer",
-                    "description": (
-                        "The maximum number of relevant "
-                        "memory chunks to return (default 4)."
-                    ),
+                    "description": "The maximum number of relevant memory chunks to return (default 4).",
                     "default": 4,
                 },
             },
@@ -174,25 +120,54 @@ def create_tool_registry() -> ToolRegistry:
         function=search_memory,
     )
 
-    # ========================================================
-    # IMAGE GENERATION
-    # ========================================================
+    registry.register(
+        name="read_file",
+        description=(
+            "Read the contents of a local text file under the project directory. "
+            "Use when the user asks to open, read, show, or inspect a file "
+            "(e.g. README, .py, .txt, .md, .json)."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Relative or absolute path of the file to read.",
+                }
+            },
+            "required": ["file_path"],
+        },
+        function=read_local_file,
+    )
+
+    registry.register(
+        name="list_directory",
+        description=(
+            "List files and folders in a directory under the project. "
+            "Use when the user asks what is in a folder or wants to browse files."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "dir_path": {
+                    "type": "string",
+                    "description": "Directory path relative to the project root (default: '.').",
+                    "default": ".",
+                }
+            },
+        },
+        function=list_directory,
+    )
 
     registry.register(
         name="generate_image",
-        description=(
-            "Generate an image using artificial intelligence "
-            "based on the user's prompt."
-        ),
+        description="Generate an image using artificial intelligence based on the user's prompt.",
         parameters={
             "type": "object",
             "properties": {
                 "prompt": {
                     "type": "string",
-                    "description": (
-                        "The prompt describing the image "
-                        "to generate."
-                    ),
+                    "description": "The prompt describing the image to generate.",
                 }
             },
             "required": ["prompt"],
@@ -200,15 +175,9 @@ def create_tool_registry() -> ToolRegistry:
         function=generate_image,
     )
 
-    # ========================================================
-    # WEB SEARCH
-    # ========================================================
-
     registry.register(
         name="web_search",
-        description=(
-            "Search the internet for current information."
-        ),
+        description="Search the internet for current information.",
         parameters={
             "type": "object",
             "properties": {
@@ -222,23 +191,15 @@ def create_tool_registry() -> ToolRegistry:
         function=web_search,
     )
 
-    # ========================================================
-    # FETCH WEB PAGE
-    # ========================================================
-
     registry.register(
         name="fetch_web_page",
-        description=(
-            "Read the contents of a web page."
-        ),
+        description="Read the contents of a web page.",
         parameters={
             "type": "object",
             "properties": {
                 "url": {
                     "type": "string",
-                    "description": (
-                        "The URL of the web page."
-                    ),
+                    "description": "The URL of the web page.",
                 }
             },
             "required": ["url"],
@@ -246,25 +207,14 @@ def create_tool_registry() -> ToolRegistry:
         function=fetch_web_page,
     )
 
-    # ========================================================
-    # SCREEN CAPTURE
-    # ========================================================
-
     registry.register(
         name="capture_screen",
-        description=(
-            "Capture a screenshot of the computer screen and "
-            "save it under the screenshots/ folder."
-        ),
+        description="Capture a screenshot of the computer screen and save it under screenshots/.",
         parameters={
             "type": "object",
             "properties": {},
         },
         function=capture_screen,
     )
-
-    # ========================================================
-    # RETURN REGISTRY
-    # ========================================================
 
     return registry

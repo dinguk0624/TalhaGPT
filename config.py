@@ -3,7 +3,6 @@
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
 load_dotenv()
 
 # ============================================================
@@ -11,20 +10,14 @@ load_dotenv()
 # ============================================================
 
 MODEL_NAME = os.getenv("MODEL_NAME", "qwen3:8b")
-
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-
 
 # ============================================================
 # VOICE CONFIGURATION
 # ============================================================
 
 TTS_LANGUAGE = os.getenv("TTS_LANGUAGE", "tr")
-
-# True  -> TalhaGPT reads responses aloud
-# False -> Terminal output only
 ENABLE_VOICE = os.getenv("ENABLE_VOICE", "False").lower() in ("true", "1", "yes")
-
 
 # ============================================================
 # SYSTEM PROMPT
@@ -86,6 +79,12 @@ TOOL RULES:
 
 17. Use generate_image when the user asks you to generate
     an image.
+
+18. Use read_file when the user asks to read, open, show,
+    or inspect a local file (README, source code, logs, etc.).
+
+19. Use list_directory when the user asks what files are in
+    a folder or wants to browse the project directory.
 
 IMPORTANT:
 
