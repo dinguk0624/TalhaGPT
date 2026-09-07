@@ -27,6 +27,7 @@ VERSION = _read_version()
 
 MODEL_NAME = os.getenv("MODEL_NAME", "qwen3:8b")
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+VISION_MODEL = os.getenv("VISION_MODEL", "llava")
 
 # ============================================================
 # VOICE / SAFETY
@@ -90,6 +91,9 @@ TOOL RULES:
 17. Use generate_image when asked to generate an image.
 18. Use read_file to read/open/show a local file.
 19. Use list_directory to browse folders.
+20. Use analyze_image to describe a screenshot or other project image
+    with the vision model. After capture_screen, analyze the saved file
+    when the user wants to know what is on the screen.
 
 IMPORTANT:
 

@@ -6,7 +6,7 @@ from modules.app_launcher import launch_app
 from modules.api_tools import get_weather
 from modules.journal import save_note
 from modules.image_gen import generate_image
-from modules.vision import capture_screen
+from modules.vision import capture_screen, analyze_image
 from modules.file_reader import read_local_file, list_directory
 
 from modules.rag import (
@@ -210,12 +210,49 @@ def create_tool_registry() -> ToolRegistry:
 
     registry.register(
         name="capture_screen",
-        description="Capture a screenshot of the computer screen and save it under screenshots/.",
+        description=(
+            "Capture a screenshot of the computer screen and save it under screenshots/. "
+            "Set analyze=true to also describe the screenshot with the vision model."
+        ),
         parameters={
             "type": "object",
-            "properties": {},
+            "properties": {
+                "analyze": {
+                    "type": "boolean",
+                    "description": "If true, describe the screenshot with the vision model.",
+                    "default": False,
+                },
+                "question": {
+                    "type": "string",
+                    "description": "Optional question to ask about the screenshot.",
+                },
+            },
         },
         function=capture_screen,
+    )
+
+    registry.register(
+        name="analyze_image",
+        description=(
+            "Analyze an image under the project directory (screenshots, generated_images, etc.) "
+            "using the local Ollama vision model."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path of the image to analyze.",
+                },
+                "question": {
+                    "type": "string",
+                    "description": "What to look for or ask about the image.",
+                    "default": "Describe this image.",
+                },
+            },
+            "required": ["file_path"],
+        },
+        function=analyze_image,
     )
 
     return registry

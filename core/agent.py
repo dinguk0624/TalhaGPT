@@ -30,6 +30,7 @@ _TOOL_HINTS = re.compile(
     r"internette|web['’]?de|\bgoogle\b|web\s*search|https?://|"
     r"başlat|baslat|launch|\buygulama\b|(?:^|\s)(?:aç|ac)(?:\s|$)|"
     r"ekran\s*görüntüsü|screenshot|capture_screen|"
+    r"görüntü|foto|vision|analiz|analyze_image|"
     r"resim\s*(çiz|uret|üret)|görsel\s*(oluştur|olustur)|generate\s*image|"
     r"dosyay[ıi]\s*oku|read_file|readme|\.py\b|\.md\b|"
     r"klasör|klasor|dizin|listele|list_directory|"
@@ -80,6 +81,7 @@ class Agent:
         memory=None,
         on_confirm: Callable[[str, dict], bool] | None = None,
         require_confirm: bool | None = None,
+        permissions=None,
     ):
         self.model_name = model_name
         self.tool_registry = tool_registry
@@ -88,6 +90,7 @@ class Agent:
         self.client = ollama.Client(host=OLLAMA_HOST)
         self.tool_output_max_chars = 6000
         self.on_confirm = on_confirm
+        self.permissions = permissions
         self.require_confirm = (
             REQUIRE_TOOL_CONFIRM if require_confirm is None else require_confirm
         )
@@ -260,7 +263,18 @@ class Agent:
         return accumulated, tool_calls, raw_message
 
     def _execute_tool(self, tool_name: str, arguments: dict) -> str:
-        if tool_name in RESTRICTED_TOOLS and self.require_confirm:
+        decision = "allow"
+        if self.permissions is not None:
+            decision = self.permissions.policy_for(tool_name)
+            if decision == "ask" and not self.require_confirm:
+                decision = "allow"
+        elif tool_name in RESTRICTED_TOOLS and self.require_confirm:
+            decision = "ask"
+
+        if decision == "deny":
+            return f"Tool '{tool_name}' was denied by permission policy."
+
+        if decision == "ask":
             if self.on_confirm is None:
                 return (
                     f"Tool '{tool_name}' was denied: confirmation is required."

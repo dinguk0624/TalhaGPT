@@ -2,7 +2,7 @@
 
 > **A local AI assistant built on top of Qwen3:8B.**
 
-**Current version: v0.2.3**
+**Current version: [v0.3](https://github.com/dinguk0624/TalhaGPT/releases/tag/v0.3)**
 
 TalhaGPT combines a local LLM with an agent loop, tool calling, persistent memory, RAG, web access, system tools, file reading, streaming output, image generation, and optional voice.
 
@@ -27,7 +27,9 @@ TalhaGPT combines a local LLM with an agent loop, tool calling, persistent memor
 - 🌤️ Weather and system monitoring
 - 🚀 Application launching (Windows)
 - 🖼️ Image generation (optional GPU)
-- 📸 Screen capture
+- 📸 Screen capture + local vision analysis
+- 🔐 Per-tool permissions (allow / ask / deny)
+- 💬 Multi-session conversations
 - 🔊 Optional text-to-speech
 - 🧪 Automated tests and GitHub Actions
 
@@ -46,7 +48,8 @@ TalhaGPT combines a local LLM with an agent loop, tool calling, persistent memor
 | `generate_image` | Image generation |
 | `web_search` | Internet search |
 | `fetch_web_page` | Retrieve web page contents |
-| `capture_screen` | Screen capture |
+| `capture_screen` | Screen capture (optional vision analysis) |
+| `analyze_image` | Describe a local image with a vision model |
 
 ## 🧰 Stack
 
@@ -62,6 +65,7 @@ git clone https://github.com/dinguk0624/TalhaGPT.git
 cd TalhaGPT
 py -m pip install -r requirements.txt
 ollama pull qwen3:8b
+ollama pull llava
 py main.py
 ```
 
@@ -72,9 +76,13 @@ Full install notes for macOS/Linux are in earlier docs / same flow with `python3
 `config.py` / env:
 
 - `MODEL_NAME` (default `qwen3:8b`)
+- `VISION_MODEL` (default `llava`)
 - `OLLAMA_HOST`
 - `ENABLE_VOICE`
 - `TTS_LANGUAGE`
+- `REQUIRE_TOOL_CONFIRM`
+
+Slash commands: `/permissions`, `/allow`, `/ask`, `/deny`, `/sessions`, `/new`, `/switch`.
 
 ## 🔒 Privacy
 
@@ -82,14 +90,18 @@ Runs locally. Memory and vector DB stay on your machine. Some tools (web, weathe
 
 ## 🗺️ Roadmap
 
+v0.3.0 ile bu yol haritası **tamamlandı**.
+
 - [x] Local Qwen3:8B + agent loop + tools
 - [x] RAG + memory
 - [x] Streaming
 - [x] File read / directory list
 - [x] CI tests
-- [ ] Tool permission system
-- [ ] Multi-session conversations
-- [ ] Real multimodal vision
+- [x] Tool permission system
+- [x] Multi-session conversations
+- [x] Real multimodal vision
+
+Yeni fikirler için GitHub Issues kullanın.
 
 ## 📜 License
 

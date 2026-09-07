@@ -2,6 +2,15 @@
 
 All notable changes to TalhaGPT are documented here.
 
+## [0.3.0] - 2026-09-07
+
+Roadmap complete: permissions, multi-session chats, and local vision.
+
+### Added
+- Per-tool permission policies (`allow` / `ask` / `deny`) with `/permissions`, `/allow`, `/ask`, `/deny`
+- Multi-session chats: `/sessions`, `/new`, `/switch`
+- `analyze_image` plus optional `capture_screen(analyze=true)` via `VISION_MODEL` (default `llava`)
+
 ## [0.2.3] - 2026-09-07
 
 ### Fixed

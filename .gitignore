@@ -17,6 +17,8 @@ vector_db/
 data/notes.txt
 data/conversations/
 data/conversation_memory.json
+data/sessions/
+data/tool_permissions.json
 notlar.txt
 
 # Generated media
