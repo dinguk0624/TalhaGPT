@@ -21,7 +21,7 @@ APPS = {
 }
 
 
-def launch_app(user_input: str) -> str:
+def launch_app(app_name: str) -> str:
     """Launch an explicitly allowlisted application (currently Windows-only)."""
     if platform.system() != "Windows":
         return (
@@ -29,15 +29,16 @@ def launch_app(user_input: str) -> str:
             f"Mevcut sistem: {platform.system()}."
         )
 
-    if not isinstance(user_input, str) or not user_input.strip():
+    if not isinstance(app_name, str) or not app_name.strip():
         return "[Uygulama Hatası]: Hangi uygulamanın açılacağı belirtilmedi."
 
-    text = user_input.casefold()
+    text = app_name.strip().casefold()
     target_app = None
     app_label = None
 
     for name, exe in APPS.items():
-        if name in text:
+        stem = exe.removesuffix(".exe")
+        if name in text or text in {name, exe, stem}:
             target_app = exe
             app_label = name
             break

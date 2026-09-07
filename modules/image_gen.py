@@ -1,9 +1,6 @@
 # modules/image_gen.py
 import os
 
-import torch
-from diffusers import AutoPipelineForText2Image
-
 pipe = None
 device = None
 
@@ -13,6 +10,9 @@ def init_image_pipeline():
     global pipe, device
     if pipe is not None:
         return
+
+    import torch
+    from diffusers import AutoPipelineForText2Image
 
     if torch.cuda.is_available():
         device = "cuda"

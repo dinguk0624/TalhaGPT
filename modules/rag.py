@@ -1,24 +1,33 @@
 import hashlib
 import os
 
-import chromadb
-from sentence_transformers import SentenceTransformer
+from modules.file_reader import _resolve_safe_path
 
 
 _embedder = None
+_collection = None
 
 
-def _get_embedder() -> SentenceTransformer:
+def _get_embedder():
     """Load the embedding model only when RAG functionality is first used."""
     global _embedder
     if _embedder is None:
+        from sentence_transformers import SentenceTransformer
+
         print("[RAG] Loading embedding model...")
         _embedder = SentenceTransformer("all-MiniLM-L6-v2")
     return _embedder
 
 
-db_client = chromadb.PersistentClient(path="./vector_db")
-collection = db_client.get_or_create_collection(name="talha_knowledge")
+def _get_collection():
+    """Open ChromaDB only when RAG is actually used."""
+    global _collection
+    if _collection is None:
+        import chromadb
+
+        db_client = chromadb.PersistentClient(path="./vector_db")
+        _collection = db_client.get_or_create_collection(name="talha_knowledge")
+    return _collection
 
 
 def _split_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str]:
@@ -67,7 +76,9 @@ def _store_chunks(
             {"source": source, "type": memory_type, **({"file_name": file_name} if file_name else {})}
             for _ in chunks
         ]
-        collection.upsert(documents=chunks, embeddings=embeddings, ids=ids, metadatas=metadatas)
+        _get_collection().upsert(
+            documents=chunks, embeddings=embeddings, ids=ids, metadatas=metadatas
+        )
     except Exception as exc:
         return f"[RAG Error]: Failed to store memory: {type(exc).__name__}"
     return f"[RAG]: Text successfully added to long-term memory. ({len(chunks)} chunks)"
@@ -80,25 +91,10 @@ def add_text_to_memory(text: str, source: str = "user_note") -> str:
 
 
 def add_document_to_memory(file_path: str) -> str:
-    if not file_path or not file_path.strip():
-        return "[RAG Error]: File path cannot be empty."
-    clean_path = file_path.strip().strip("'\"")
-    if clean_path.startswith("/"):
-        clean_path = clean_path.lstrip("/\\")
-
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    if not os.path.isabs(clean_path):
-        clean_path = os.path.join(project_root, clean_path)
-    clean_path = os.path.normpath(clean_path)
-
-    try:
-        if os.path.commonpath([project_root, clean_path]) != project_root:
-            return "[RAG Error]: File path is outside the project directory."
-    except ValueError:
-        return "[RAG Error]: Invalid file path."
-
-    if not os.path.isfile(clean_path):
-        return "[RAG Error]: Requested file was not found."
+    path, err = _resolve_safe_path(file_path)
+    if err:
+        return f"[RAG Error]: {err}"
+    clean_path = str(path)
 
     try:
         with open(clean_path, "r", encoding="utf-8") as file:
@@ -116,16 +112,22 @@ def add_document_to_memory(file_path: str) -> str:
 
 def search_memory(query: str, n_results: int = 4) -> str:
     if not query or not query.strip():
-        return ""
+        return "[Memory]: Search query was empty. Do not invent remembered information."
     if isinstance(n_results, bool) or not isinstance(n_results, int):
         n_results = 4
     n_results = max(1, min(n_results, 10))
 
     try:
         query_embedding = _get_embedder().encode([query]).tolist()
-        results = collection.query(query_embeddings=query_embedding, n_results=n_results)
+        results = _get_collection().query(
+            query_embeddings=query_embedding, n_results=n_results
+        )
         documents = results.get("documents", [[]])[0]
-        return "\n---\n".join(documents) if documents else ""
+        if documents:
+            return "\n---\n".join(documents)
+        return "[Memory]: No relevant notes were found. Do not invent remembered information."
     except Exception as exc:
         print(f"[RAG Search Error]: {type(exc).__name__}")
-        return ""
+        return (
+            "[Memory]: Search failed. Do not invent remembered information."
+        )

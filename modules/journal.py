@@ -1,7 +1,7 @@
 import datetime
 import os
 
-from modules.rag import add_document_to_memory
+from modules.rag import add_text_to_memory
 
 
 # ============================================================
@@ -145,9 +145,9 @@ def save_note(note: str) -> str:
 
     try:
 
-        # RAG'ın dosya tabanlı API'sini kullanıyoruz.
-        rag_result = add_document_to_memory(
-            NOTES_FILE
+        rag_result = add_text_to_memory(
+            cleaned_note,
+            source="user_note",
         )
 
         if (

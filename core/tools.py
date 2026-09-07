@@ -31,6 +31,7 @@ def create_tool_registry() -> ToolRegistry:
                 "city": {
                     "type": "string",
                     "description": "The city name.",
+                    "minLength": 1,
                 }
             },
             "required": ["city"],

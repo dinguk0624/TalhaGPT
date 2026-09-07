@@ -30,7 +30,6 @@ TEXT_EXTENSIONS = {
     ".css",
     ".xml",
     ".rst",
-    ".env",
     ".sh",
     ".bat",
     ".ps1",
@@ -67,7 +66,13 @@ def _resolve_safe_path(file_path: str) -> tuple[Path | None, str | None]:
     try:
         candidate.relative_to(root)
     except ValueError:
-        return None, "[Okuma Hatası]: Proje dizini dışındaki dosyalara erişim engellendi."
+        # Models often emit "/README.md"; treat that as project-relative.
+        retry = (root / Path(clean.lstrip("/\\"))).resolve()
+        try:
+            retry.relative_to(root)
+            candidate = retry
+        except ValueError:
+            return None, "[Okuma Hatası]: Proje dizini dışındaki dosyalara erişim engellendi."
 
     return candidate, None
 

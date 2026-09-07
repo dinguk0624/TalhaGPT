@@ -1,22 +1,28 @@
 # modules/voice.py
 import os
 import tempfile
-from gtts import gTTS
-import pygame
+
 from config import TTS_LANGUAGE, ENABLE_VOICE
+
 
 def speak(text: str):
     """Metni Türkçe sese çevirip çalar."""
-    # Ses kapalıysa veya metin boşsa hiç ses çıkarma
-    if not ENABLE_VOICE or not text.strip():
+    if not ENABLE_VOICE or not text or not str(text).strip():
         return
-    
+
+    filename = None
     try:
-        # Use tempfile module for secure temp file handling
+        from gtts import gTTS
+        import pygame
+    except Exception as e:
+        print(f"[Ses Hatası]: Ses kütüphaneleri yüklenemedi ({e})")
+        return
+
+    try:
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
             filename = tmp.name
-        
-        tts = gTTS(text=text, lang=TTS_LANGUAGE, slow=False)
+
+        tts = gTTS(text=str(text), lang=TTS_LANGUAGE, slow=False)
         tts.save(filename)
 
         if not pygame.mixer.get_init():
@@ -28,11 +34,12 @@ def speak(text: str):
         while pygame.mixer.music.get_busy():
             pygame.time.Clock().tick(10)
 
-        pygame.mixer.music.unload()
+        if hasattr(pygame.mixer.music, "unload"):
+            pygame.mixer.music.unload()
     except Exception as e:
         print(f"[Ses Hatası]: {e}")
     finally:
-        if os.path.exists(filename):
+        if filename and os.path.exists(filename):
             try:
                 os.remove(filename)
             except Exception:

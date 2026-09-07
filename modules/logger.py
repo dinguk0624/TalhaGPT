@@ -69,6 +69,15 @@ console_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
+# core.* and modules.* use logging.getLogger(__name__), not TalhaGPT.*.
+for _pkg in ("core", "modules"):
+    _pkg_logger = logging.getLogger(_pkg)
+    _pkg_logger.setLevel(logging.DEBUG)
+    _pkg_logger.handlers.clear()
+    _pkg_logger.propagate = False
+    _pkg_logger.addHandler(file_handler)
+    _pkg_logger.addHandler(console_handler)
+
 
 def get_logger(name: str = "TalhaGPT") -> logging.Logger:
     """Get a logger instance for the specified module."""

@@ -5,7 +5,10 @@ from urllib.parse import urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
-from duckduckgo_search import DDGS
+try:
+    from duckduckgo_search import DDGS
+except ImportError:  # package renamed to `ddgs` in recent releases
+    from ddgs import DDGS
 
 
 _BLOCKED_HOSTS = {"localhost", "localhost.localdomain"}
@@ -64,32 +67,40 @@ def web_search(query: str) -> str:
 
 def fetch_web_page(url: str) -> str:
     """Fetch a public HTTP(S) web page with SSRF protection."""
-    if not isinstance(url, str) or not _is_safe_url(url):
+    if not isinstance(url, str) or not url.strip():
         return "Web sayfası okunamadı: Güvenlik nedeniyle bu URL'ye erişim engellendi."
 
     try:
         headers = {"User-Agent": "TalhaGPT/1.0"}
-        response = requests.get(
-            url,
-            headers=headers,
-            timeout=5,
-            allow_redirects=False,
-        )
-        response.raise_for_status()
+        current = url.strip()
+        response = None
+        max_redirects = 5
 
-        # Validate redirects before following them to prevent redirect-based SSRF.
-        if response.is_redirect or response.is_permanent_redirect:
-            location = response.headers.get("Location", "")
-            redirected_url = urljoin(url, location)
-            if not _is_safe_url(redirected_url):
-                return "Web sayfası okunamadı: Güvenlik nedeniyle yönlendirme engellendi."
+        for _ in range(max_redirects + 1):
+            if not _is_safe_url(current):
+                return (
+                    "Web sayfası okunamadı: "
+                    "Güvenlik nedeniyle bu URL'ye erişim engellendi."
+                )
             response = requests.get(
-                redirected_url,
+                current,
                 headers=headers,
                 timeout=5,
                 allow_redirects=False,
             )
+            if response.is_redirect or response.is_permanent_redirect:
+                location = response.headers.get("Location", "")
+                if not location:
+                    return "Web sayfası okunamadı: İstek başarısız oldu."
+                current = urljoin(current, location)
+                continue
             response.raise_for_status()
+            break
+        else:
+            return "Web sayfası okunamadı: Çok fazla yönlendirme."
+
+        if response is None:
+            return "Web sayfası okunamadı: İstek başarısız oldu."
 
         soup = BeautifulSoup(response.text, "html.parser")
         title = soup.title.string.strip() if soup.title and soup.title.string else "Başlık Yok"

@@ -2,7 +2,7 @@
 
 > **A local AI assistant built on top of Qwen3:8B.**
 
-**Current release: [v0.2.0](https://github.com/dinguk0624/TalhaGPT/releases/tag/v0.2.0)**
+**Current version: v0.2.3**
 
 TalhaGPT combines a local LLM with an agent loop, tool calling, persistent memory, RAG, web access, system tools, file reading, streaming output, image generation, and optional voice.
 

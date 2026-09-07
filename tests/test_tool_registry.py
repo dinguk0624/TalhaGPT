@@ -46,6 +46,22 @@ def test_wrong_argument_type():
     assert "must be a string" in result
 
 
+def test_string_min_length():
+    registry = ToolRegistry()
+    registry.register(
+        "city_tool",
+        "City",
+        {
+            "type": "object",
+            "properties": {"city": {"type": "string", "minLength": 1}},
+            "required": ["city"],
+        },
+        lambda city: city,
+    )
+    result = registry.execute("city_tool", {"city": ""})
+    assert "too short" in result
+
+
 def test_unknown_tool():
     registry = ToolRegistry()
     assert "No tool named" in registry.execute("missing", {})

@@ -1,18 +1,10 @@
 # modules/executor.py
-import subprocess
+"""Code execution is intentionally disabled."""
+
 
 def run_python_code(code: str) -> str:
-    """Verilen Python kodunu güvenli şekilde çalıştırır."""
-    try:
-        result = subprocess.run(
-            ["python", "-c", code],
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
-        if result.returncode == 0:
-            return result.stdout if result.stdout else "Kod başarıyla çalıştı (Çıktı yok)."
-        else:
-            return f"Kod Hatası:\n{result.stderr}"
-    except Exception as e:
-        return f"Çalıştırma Hatası: {e}"
+    """Do not execute model- or user-supplied Python."""
+    return (
+        "[Güvenlik]: Rastgele Python kodu çalıştırma devre dışı bırakıldı. "
+        "Bu özellik güvenlik nedeniyle kullanılamaz."
+    )

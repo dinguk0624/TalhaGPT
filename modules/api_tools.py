@@ -8,6 +8,11 @@ import json
 def get_weather(city: str = "Ankara") -> str:
     """wttr.in servisinden hava durumunu alır ve temiz metin döndürür."""
 
+    if not isinstance(city, str) or not city.strip():
+        return "[Hava Durumu Hatası]: Şehir adı boş olamaz."
+
+    city = city.strip()
+
     try:
         url = f"https://wttr.in/{urllib.parse.quote(city)}?format=j1&lang=tr"
 
