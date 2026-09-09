@@ -43,17 +43,24 @@ REQUIRE_TOOL_CONFIRM = os.getenv("REQUIRE_TOOL_CONFIRM", "True").lower() in (
     "yes",
 )
 
+# Optional preferred address for the user (empty = natural addressing)
+USER_ADDRESS = os.getenv("USER_ADDRESS", "").strip()
+
 # ============================================================
 # SYSTEM PROMPT
 # ============================================================
 
-SYSTEM_PROMPT = """
+_ADDRESS_LINE = (
+    f'When addressing the user, prefer calling them "{USER_ADDRESS}".\n\n'
+    if USER_ADDRESS
+    else ""
+)
+
+SYSTEM_PROMPT = f"""
 You are TalhaGPT, an intelligent, helpful, and capable
 AI assistant.
 
-Always address the user as "ostam".
-
-CORE BEHAVIOR:
+{_ADDRESS_LINE}CORE BEHAVIOR:
 
 1. Carefully analyze the user's request.
 2. Do not use tools unnecessarily.
@@ -103,4 +110,4 @@ IMPORTANT:
 - Do not delete or modify files unless explicitly asked.
 - Keep responses concise, clear, and useful.
 - Respond in the user's language when appropriate.
-"""
+""".strip()
