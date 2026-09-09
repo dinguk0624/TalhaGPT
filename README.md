@@ -4,7 +4,7 @@
 
 **Current version: [v0.3](https://github.com/dinguk0624/TalhaGPT/releases/tag/v0.3)**
 
-TalhaGPT combines a local LLM with an agent loop, tool calling, persistent memory, RAG, web access, system tools, file reading, streaming output, image generation, and optional voice.
+TalhaGPT combines a local LLM with an agent loop, tool calling, persistent memory, RAG, web access, system tools, file reading, streaming output, image generation, and optional voice. 
 
 **Qwen3:8B is the model. TalhaGPT is the assistant layer around it.**
 
