@@ -110,3 +110,23 @@ See `LICENSE` (MIT).
 ## ⭐ Support
 
 Star the repo if useful. Issues and PRs welcome.
+
+## 🐳 Docker ile çalıştırma
+
+Docker ve Docker Compose kurulu bir makinede TalhaGPT ile Ollama'yı birlikte başlatabilirsiniz:
+
+```bash
+cp .env.example .env
+docker compose up -d ollama
+docker compose run --rm ollama ollama pull qwen3:8b
+docker compose run --rm ollama ollama pull llava
+docker compose run --rm talhGPT
+```
+
+Model indirmeleri `ollama_data` Docker volume'unda, konuşma hafızası ve vektör veritabanı ise ayrı kalıcı volume'larda tutulur. Ollama servisi Compose ağı içinde `http://ollama:11434` adresinden erişilir; bu nedenle konteyner içindeki `.env` dosyasında `OLLAMA_HOST` değerini değiştirmeyin. Etkileşimli arayüzü kapatmak için `q` yazın. Servisleri durdurmak için:
+
+```bash
+docker compose down
+```
+
+GPU kullanımı donanım ve Docker runtime yapılandırmasına bağlıdır. Bu Compose dosyası varsayılan olarak CPU uyumludur.

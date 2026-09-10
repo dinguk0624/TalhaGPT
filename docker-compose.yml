@@ -1,0 +1,40 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: talhGPT-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+  talhGPT:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: talhGPT-app
+    restart: unless-stopped
+    depends_on:
+      - ollama
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      MODEL_NAME: ${MODEL_NAME:-qwen3:8b}
+      VISION_MODEL: ${VISION_MODEL:-llava}
+      ENABLE_VOICE: ${ENABLE_VOICE:-False}
+      TTS_LANGUAGE: ${TTS_LANGUAGE:-tr}
+      REQUIRE_TOOL_CONFIRM: ${REQUIRE_TOOL_CONFIRM:-True}
+      USER_ADDRESS: ${USER_ADDRESS:-}
+    stdin_open: true
+    tty: true
+    volumes:
+      - talhGPT_data:/app/data
+      - talhGPT_vector_db:/app/vector_db
+      - talhGPT_screenshots:/app/screenshots
+      - talhGPT_generated_images:/app/generated_images
+
+volumes:
+  ollama_data:
+  talhGPT_data:
+  talhGPT_vector_db:
+  talhGPT_screenshots:
+  talhGPT_generated_images:

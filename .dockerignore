@@ -1,0 +1,13 @@
+.git
+.github
+__pycache__
+*.py[cod]
+.pytest_cache
+.venv
+venv
+data
+vector_db
+screenshots
+generated_images
+.env
+.DS_Store
