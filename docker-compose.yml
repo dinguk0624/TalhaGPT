@@ -1,13 +1,18 @@
+# TalhaGPT and Ollama run together on the default Compose network.
 services:
+  # Local LLM server. Model files are kept in a named volume across restarts.
   ollama:
     image: ollama/ollama:latest
     container_name: talhGPT-ollama
     restart: unless-stopped
     ports:
+      # Expose Ollama for optional host-side clients and health checks.
       - "11434:11434"
     volumes:
+      # Persist downloaded models so they are not lost when the container is recreated.
       - ollama_data:/root/.ollama
 
+  # Interactive TalhaGPT CLI application.
   talhGPT:
     build:
       context: .
@@ -15,23 +20,29 @@ services:
     container_name: talhGPT-app
     restart: unless-stopped
     depends_on:
+      # Start the Ollama container before starting the assistant.
       - ollama
     environment:
+      # Use the Compose service name instead of localhost for container-to-container access.
       OLLAMA_HOST: http://ollama:11434
+      # These values can be overridden in a local .env file.
       MODEL_NAME: ${MODEL_NAME:-qwen3:8b}
       VISION_MODEL: ${VISION_MODEL:-llava}
       ENABLE_VOICE: ${ENABLE_VOICE:-False}
       TTS_LANGUAGE: ${TTS_LANGUAGE:-tr}
       REQUIRE_TOOL_CONFIRM: ${REQUIRE_TOOL_CONFIRM:-True}
       USER_ADDRESS: ${USER_ADDRESS:-}
+    # Keep stdin and a pseudo-terminal enabled for the interactive CLI.
     stdin_open: true
     tty: true
     volumes:
+      # Persist conversations, RAG data, screenshots, and generated images.
       - talhGPT_data:/app/data
       - talhGPT_vector_db:/app/vector_db
       - talhGPT_screenshots:/app/screenshots
       - talhGPT_generated_images:/app/generated_images
 
+# Named volumes provide persistent storage managed by Docker.
 volumes:
   ollama_data:
   talhGPT_data:
